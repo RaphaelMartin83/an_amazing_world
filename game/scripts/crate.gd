@@ -9,7 +9,11 @@ var fuse := -1.0
 var broken := false
 var counts_for_total := true
 var visual: Node3D
+var body_mat: StandardMaterial3D
+var fuse_label: Label3D
 var _last_tick := 99
+
+const Explosion = preload("res://scripts/explosion.gd")
 
 
 static var _tex := {}
@@ -39,7 +43,8 @@ func setup(k: String) -> void:
 	visual = Node3D.new()
 	add_child(visual)
 	var st: Dictionary = STYLE[kind]
-	T.box(visual, Vector3.ONE * 0.98, Vector3.ZERO, T.mat(st.base, true, 0.8, _plank_tex(kind, st.base), 0.025))
+	body_mat = T.mat(st.base, true, 0.8, _plank_tex(kind, st.base), 0.025)
+	T.box(visual, Vector3.ONE * 0.98, Vector3.ZERO, body_mat)
 	if kind == "life" and Game.face_texture:
 		for face in _faces():
 			var sp := Sprite3D.new()
@@ -139,6 +144,7 @@ func hit(player: Node3D, how: String) -> void:
 			if fuse < 0.0:
 				fuse = 3.0
 				_last_tick = 4
+				_make_fuse_label()
 			if stomped and player:
 				player.bounce(10.5)
 			_wobble()
@@ -146,6 +152,20 @@ func hit(player: Node3D, how: String) -> void:
 			if stomped and player:
 				player.bounce(9.0)
 			_break(player)
+
+
+func _make_fuse_label() -> void:
+	fuse_label = Label3D.new()
+	fuse_label.text = "3"
+	fuse_label.font_size = 180
+	fuse_label.pixel_size = 0.0085
+	fuse_label.outline_size = 30
+	fuse_label.outline_modulate = Color(0.1, 0.03, 0.03)
+	fuse_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	fuse_label.no_depth_test = true
+	fuse_label.shaded = false
+	fuse_label.position = Vector3(0, 1.25, 0)
+	add_child(fuse_label)
 
 
 func _wobble() -> void:
@@ -162,7 +182,14 @@ func _physics_process(delta: float) -> void:
 			_last_tick = whole
 			Sfx.play("fuse", 1.0 + (3 - whole) * 0.18)
 			_wobble()
-		visual.scale = Vector3.ONE * (1.0 + sin(fuse * 28.0) * 0.04)
+		var pulse := 0.5 + 0.5 * sin(fuse * (14.0 + (3.0 - fuse) * 10.0))   # blinks faster and faster
+		visual.scale = Vector3.ONE * (1.0 + pulse * 0.07)
+		body_mat.emission_enabled = true
+		body_mat.emission = Color(1.0, 0.15, 0.05)
+		body_mat.emission_energy_multiplier = pulse * 2.2
+		if fuse_label:
+			fuse_label.text = str(maxi(1, ceili(fuse)))
+			fuse_label.modulate = Color(1.0, 0.9, 0.3).lerp(Color(1.0, 0.2, 0.1), 1.0 - fuse / 3.0)
 		if fuse <= 0.0:
 			_explode()
 
@@ -193,19 +220,25 @@ func _break(player: Node3D) -> void:
 
 func _explode() -> void:
 	broken = true
+	if fuse_label:
+		fuse_label.queue_free()
+	var blast_center := global_position
+	var radius := 3.6
+	# the visible explosion (lives on in the level after this crate is gone)
+	var fx := Explosion.new()
+	fx.radius = radius
+	fx.floor_y = blast_center.y - 0.5
+	get_parent().add_child(fx)
+	fx.global_position = blast_center
 	Sfx.play("boom")
-	Game.shake(0.8)
+	# damage: the hero, neighbouring crates and enemies caught in the blast
 	var pl: Node3D = Game.player
 	if pl and is_instance_valid(pl):
-		var d := pl.global_position - global_position
-		if Vector2(d.x, d.z).length() < 3.6 and absf(d.y) < 3.0:
+		var d := pl.global_position - blast_center
+		if Vector2(d.x, d.z).length() < radius and absf(d.y) < 3.0:
 			pl.hurt()
-	for c in get_tree().get_nodes_in_group("crate"):
-		if c != self and is_instance_valid(c) and c.global_position.distance_to(global_position) < 3.2:
-			if c.kind != "iron":
-				c.hit(null, "spin")
+	Game.hit_area(blast_center, radius - 0.2, "spin", null)
 	Game.crate_broken()
-	_burst(Color(1.0, 0.55, 0.15), 40, 9.0, true)
 	_drop_stack()
 	queue_free()
 

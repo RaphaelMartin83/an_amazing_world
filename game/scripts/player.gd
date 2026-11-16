@@ -48,6 +48,10 @@ var anim_state := "idle"
 var last_floor_y := 0.0
 var _vy_before := 0.0
 var death_reason := ""
+var on_ice := false
+var puke_t := 0.0
+var puke_fx: CPUParticles3D
+const PUKE_TIME := 1.05
 var fill: DirectionalLight3D
 var gas: CPUParticles3D
 var gas_ring: MeshInstance3D
@@ -71,6 +75,8 @@ func _ready() -> void:
 	add_child(model)
 	model.build(Game.hero)
 	_build_gas()
+	_build_puke_fx()
+	Game.puke.connect(_on_puke)
 	# Soft fill light that only affects the hero, so his face is never left in shade.
 	fill = DirectionalLight3D.new()
 	fill.top_level = true
@@ -147,7 +153,96 @@ func _fart_burst() -> void:
 	tw.chain().tween_callback(func(): gas_ring.visible = false)
 
 
+func _build_puke_fx() -> void:
+	puke_fx = CPUParticles3D.new()
+	var chunk := SphereMesh.new()
+	chunk.radius = 0.14
+	chunk.height = 0.28
+	chunk.radial_segments = 8
+	chunk.rings = 4
+	puke_fx.mesh = chunk
+	var m := StandardMaterial3D.new()
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED   # bright and vivid, whatever the lighting
+	m.vertex_color_use_as_albedo = true
+	m.albedo_color = Color.WHITE
+	puke_fx.material_override = m
+	puke_fx.amount = 90
+	puke_fx.lifetime = 0.9
+	puke_fx.local_coords = false
+	puke_fx.emitting = false
+	puke_fx.direction = Vector3(0, 0.22, -1)
+	puke_fx.spread = 20.0
+	puke_fx.initial_velocity_min = 5.0
+	puke_fx.initial_velocity_max = 9.0
+	puke_fx.gravity = Vector3(0, -15, 0)
+	puke_fx.scale_amount_min = 0.5
+	puke_fx.scale_amount_max = 1.5
+	var tones := Gradient.new()
+	tones.set_color(0, Color(0.86, 0.80, 0.22))
+	tones.set_color(1, Color(0.55, 0.62, 0.15))
+	tones.add_point(0.5, Color(0.95, 0.55, 0.15))   # the odd bit of carrot
+	puke_fx.color_initial_ramp = tones
+	var r := 0.44 * float(Game.hero.head_scale)
+	puke_fx.position = Vector3(0, -0.43 * r, -0.95 * r)   # his mouth (the head faces -Z)
+	model.head.add_child(puke_fx)
+
+
+# Collected enough beers for a new life: he's sick. Purely cosmetic (animation, spray, puddle, sound):
+# he keeps full control and can still be hurt.
+func _on_puke() -> void:
+	if dead or celebrating or puke_t > 0.0:
+		return
+	puke_t = PUKE_TIME
+	Sfx.play("puke")
+	get_tree().create_timer(0.35).timeout.connect(_spawn_puddle)
+
+
+func _spawn_puddle() -> void:
+	if dead or not is_inside_tree() or not is_on_floor():
+		return   # no puddle hanging in mid-air
+	var fwd := Vector3(-sin(facing), 0.0, -cos(facing))
+	var floor_y := global_position.y
+	var puddle := Node3D.new()
+	get_parent().add_child(puddle)
+	puddle.global_position = Vector3(global_position.x, floor_y + 0.03, global_position.z) + fwd * 1.8
+	var pm := StandardMaterial3D.new()
+	pm.albedo_color = Color(0.78, 0.72, 0.2, 0.92)
+	pm.roughness = 0.15
+	pm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	var disc := MeshInstance3D.new()
+	var cyl := CylinderMesh.new()
+	cyl.top_radius = 1.0
+	cyl.bottom_radius = 1.0
+	cyl.height = 0.03
+	cyl.radial_segments = 22
+	disc.mesh = cyl
+	disc.material_override = pm
+	disc.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	puddle.add_child(disc)
+	for i in 6:
+		var a := TAU * i / 6.0 + 0.4
+		var blob := MeshInstance3D.new()
+		var bm := SphereMesh.new()
+		bm.radius = 0.16
+		bm.height = 0.18
+		blob.mesh = bm
+		var bmat := StandardMaterial3D.new()
+		bmat.albedo_color = Color(0.95, 0.55, 0.15) if i % 3 == 0 else Color(0.6, 0.66, 0.18)
+		bmat.roughness = 0.3
+		blob.material_override = bmat
+		blob.position = Vector3(cos(a) * 0.55, 0.05, sin(a) * 0.55)
+		puddle.add_child(blob)
+	puddle.scale = Vector3(0.15, 1.0, 0.15)
+	var tw := puddle.create_tween()
+	tw.tween_property(puddle, "scale", Vector3(1.5, 1.0, 1.5), 0.5).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tw.tween_interval(4.5)
+	tw.tween_property(pm, "albedo_color:a", 0.0, 1.2)
+	tw.tween_callback(puddle.queue_free)
+
+
 func _process(_delta: float) -> void:
+	if puke_fx:
+		puke_fx.emitting = puke_t > 0.12 and puke_t < PUKE_TIME - 0.28
 	if gas:
 		gas.emitting = spin_t > 0.0
 	# The fill light always shines along the camera's view direction, lighting whatever faces the camera.
@@ -240,6 +335,7 @@ func _physics_process(delta: float) -> void:
 		return
 
 	invuln = maxf(0.0, invuln - delta)
+	puke_t = maxf(0.0, puke_t - delta)
 	spin_cd = maxf(0.0, spin_cd - delta)
 	var on_floor := is_on_floor()
 
@@ -306,6 +402,8 @@ func _physics_process(delta: float) -> void:
 		var target := wish * RUN_SPEED
 		var hv := Vector3(velocity.x, 0.0, velocity.z)
 		var accel := GROUND_ACCEL if on_floor else AIR_ACCEL
+		if on_floor and on_ice:
+			accel = 8.0   # slippery: slow to speed up, slow to stop
 		if not on_floor and hv.length() > RUN_SPEED + 0.5 and target.length() > 0.1:
 			accel = 6.0  # keep long-jump momentum
 		hv = hv.move_toward(target, accel * delta)
@@ -333,6 +431,15 @@ func _physics_process(delta: float) -> void:
 	# --- move
 	_vy_before = velocity.y
 	move_and_slide()
+
+	on_ice = false
+	if is_on_floor():
+		for i in get_slide_collision_count():
+			var ic := get_slide_collision(i)
+			var icol := ic.get_collider()
+			if icol and ic.get_normal().y > 0.7 and icol.is_in_group("ice"):
+				on_ice = true
+				break
 
 	# stomp detection on crates / landing
 	if _vy_before < -1.5:
@@ -373,7 +480,7 @@ func _physics_process(delta: float) -> void:
 		anim_state = "run"
 	else:
 		anim_state = "idle"
-	model.animate(anim_state, hvel.length(), delta)
+	model.animate(anim_state, hvel.length(), delta, puke_t > 0.0)
 	was_on_floor = is_on_floor()
 
 

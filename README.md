@@ -17,12 +17,20 @@ Everything (engine, export templates, tools) lives in a Docker image; nothing is
 | Body slam (slide button in mid-air) | C / Ctrl | B |
 | Pause / restart level | Esc / R | Start / Back |
 
-**Crates:** wooden (smash for a mango) · `^` bounce (jump on it up to 5 times) · `C` checkpoint ·
-`M` shield (survives one hit) · friend's face = extra life · grey iron (indestructible, stand on it) ·
-`BOOM` (starts a 3-2-1 fuse, then explodes — run!).
-**Mangoes:** 100 = extra life. **Enemies:** crabs can be stomped or spun; purple spiky ones only by spinning/sliding.
+**Jumping to a level** (handy for trying new levels): pick it on the title screen (A/D or arrows, or press `1`-`6`),
+press `1`-`6` in the pause menu (Esc) to restart the run at that level, or start directly in one from the command line:
+`AnAmazingWorld.exe -- --level=3` (1 to 6) (Linux: `./AnAmazingWorld.x86_64 -- --level=3`).
 
-Levels: 1 *Jungle Run* (gaps, moving platforms, spinning bars) · 2 *Boulder Rush* (outrun the boulder; camera in front).
+**Crates:** wooden (smash for a beer) · `^` bounce (jump on it up to 5 times) · `C` checkpoint ·
+`M` shield (survives one hit) · friend's face = extra life · grey iron (indestructible, stand on it) ·
+`BOOM` (starts a 3-2-1 fuse with a blinking countdown, then a proper explosion that hurts you, wrecks neighbouring crates and kills enemies — run!).
+**Gems:** every bounce crate has a gem floating above it — hold jump when you land on the crate to bounce high enough to grab it (+10 beers).
+**Beers:** small bottles to collect. 100 = extra life... and Palmouze pukes (a second of retching with a green face, a spray and a puddle — purely cosmetic: he keeps full control the whole time). **Enemies:** crabs can be stomped or spun; purple spiky ones only by spinning/sliding.
+
+Levels: 1 *Jungle Run* (gaps, moving platforms, spinning toys) · 2 *Boulder Rush* (outrun the boulder; camera in front) · 3 *Sewer Surge* (brick tunnel over toxic sludge: slimes, crumbling grates that drop ~0.5 s after you land, moving platforms, spinners) ·
+4 *Neon Rooftops* (sunset city: conveyor belts that push you back, hovering drones, scaffolding) ·
+5 *Sunny Shores* (beach: tidal waves — foam warns you first — rotting pier planks, rafts, crabs, urchins) ·
+6 *Frozen Peaks* (snow: slippery ice, cracking ice, ice floes, penguins, falling snow).
 
 ## Tweak the hero (Palmouze)
 

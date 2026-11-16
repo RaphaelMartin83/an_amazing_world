@@ -2,6 +2,7 @@ extends CanvasLayer
 # On-screen UI, built entirely in code: counters, banners, title / complete / game-over screens, pause, fade.
 
 const FaceIcon = preload("res://scripts/face_icon.gd")
+const BottleIcon = preload("res://scripts/bottle_icon.gd")
 
 var lives_label: Label
 var fruit_label: Label
@@ -15,7 +16,11 @@ var title_sub: Label
 var title_hint: Label
 var info_label: Label
 var fade: ColorRect
+var flash_rect: ColorRect
 var pause_box: Label
+signal level_requested(index: int)
+
+var level_count := 1
 var msg_t := 0.0
 var banner_t := 0.0
 var _fade_tween: Tween
@@ -43,8 +48,15 @@ func _ready() -> void:
 
 	# --- top-right: fruit + crates
 	fruit_label = _label(root, 44, Vector2.ZERO)
-	_place(fruit_label, Control.PRESET_TOP_WIDE, 18, 66, 24)
+	_place(fruit_label, Control.PRESET_TOP_WIDE, 18, 66, 84)
 	fruit_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	var bottle := BottleIcon.new()
+	root.add_child(bottle)
+	bottle.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
+	bottle.offset_left = -78
+	bottle.offset_right = -24
+	bottle.offset_top = 8
+	bottle.offset_bottom = 78
 	crate_label = _label(root, 26, Vector2.ZERO)
 	_place(crate_label, Control.PRESET_TOP_WIDE, 74, 108, 24)
 	crate_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
@@ -85,8 +97,14 @@ func _ready() -> void:
 	pause_box.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	pause_box.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	pause_box.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	pause_box.text = "PAUSED\n[Esc] resume   [Q] quit"
+	pause_box.text = "PAUSED\n[Esc] resume   [Q] quit\n[1]-[%d] jump to level" % level_count
 	pause_box.visible = false
+
+	flash_rect = ColorRect.new()
+	flash_rect.color = Color(1, 1, 1, 0)
+	flash_rect.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	flash_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.add_child(flash_rect)
 
 	fade = ColorRect.new()
 	fade.color = Color(0, 0, 0, 0)
@@ -95,6 +113,7 @@ func _ready() -> void:
 	root.add_child(fade)
 
 	Game.changed.connect(refresh)
+	Game.screen_flash.connect(_on_flash)
 	refresh()
 
 
@@ -120,8 +139,8 @@ func _label(parent: Node, size: int, pos: Vector2) -> Label:
 
 func refresh() -> void:
 	lives_label.text = "x %d" % Game.lives
-	fruit_label.text = "%d  (mango)" % Game.fruit
-	crate_label.text = "crates %d / %d" % [Game.crates_broken, Game.crates_total]
+	fruit_label.text = "%d / %d" % [Game.fruit, Game.FRUIT_FOR_LIFE]
+	crate_label.text = "crates %d / %d     gems %d / %d" % [Game.crates_broken, Game.crates_total, Game.gems, Game.gems_total]
 	shield_label.text = "SHIELD" if Game.has_mask else ""
 
 
@@ -132,6 +151,12 @@ func _process(delta: float) -> void:
 	if banner_t > 0.0:
 		banner_t -= delta
 		banner.modulate.a = clampf(banner_t * 2.0, 0.0, 1.0)
+
+
+func _on_flash(color: Color) -> void:
+	flash_rect.color = color
+	var tw := create_tween()
+	tw.tween_property(flash_rect, "color:a", 0.0, 0.35)
 
 
 func show_message(text: String, seconds := 1.5) -> void:
@@ -172,3 +197,10 @@ func _unhandled_input(event: InputEvent) -> void:
 		Sfx.set_music(not get_tree().paused)
 	elif get_tree().paused and event is InputEventKey and event.pressed and event.physical_keycode == KEY_Q:
 		get_tree().quit()
+	elif get_tree().paused and event is InputEventKey and event.pressed:
+		var idx: int = int(event.physical_keycode) - KEY_1
+		if idx >= 0 and idx < level_count:
+			get_tree().paused = false
+			pause_box.visible = false
+			Sfx.set_music(true)
+			level_requested.emit(idx)

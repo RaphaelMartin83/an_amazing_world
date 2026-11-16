@@ -4,6 +4,8 @@ extends Node
 signal changed
 signal message(text: String, seconds: float)
 signal level_completed
+signal screen_flash(color: Color)
+signal puke
 
 const START_LIVES := 5
 const FRUIT_FOR_LIFE := 100
@@ -12,6 +14,8 @@ var fruit := 0
 var lives := START_LIVES
 var crates_broken := 0
 var crates_total := 0
+var gems := 0
+var gems_total := 0
 var has_mask := false
 var checkpoint = null          # Vector3 or null
 var kill_y := -12.0
@@ -35,6 +39,8 @@ func reset_run() -> void:
 func reset_level() -> void:
 	crates_broken = 0
 	crates_total = 0
+	gems = 0
+	gems_total = 0
 	checkpoint = null
 	has_mask = false
 	changed.emit()
@@ -45,7 +51,16 @@ func add_fruit(n: int) -> void:
 	if fruit >= FRUIT_FOR_LIFE:
 		fruit -= FRUIT_FOR_LIFE
 		add_life()
+		message.emit("BLEURGH!  EXTRA LIFE!", 2.2)
+		puke.emit()
 	changed.emit()
+
+
+func add_gem() -> void:
+	gems += 1
+	Sfx.play("gem")
+	message.emit("GEM!  +10 beers", 1.5)
+	add_fruit(10)
 
 
 func add_life() -> void:

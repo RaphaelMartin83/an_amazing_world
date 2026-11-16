@@ -23,15 +23,17 @@ func _ready() -> void:
 	sounds["fart2"] = _fart(0.4, 1.35)
 	sounds["slide"] = _tone(260, 120, 0.3, "saw", 0.12, 0.7)
 	sounds["slam"] = _tone(180, 40, 0.28, "sine", 0.55, 0.3)
-	sounds["fruit"] = _tone(880, 1320, 0.1, "square", 0.16)
+	sounds["fruit"] = _clink()
+	sounds["puke"] = _puke()
 	sounds["crate"] = _tone(300, 90, 0.18, "saw", 0.35, 0.8)
 	sounds["bounce"] = _tone(200, 520, 0.2, "sine", 0.4)
 	sounds["clank"] = _tone(700, 500, 0.12, "square", 0.2, 0.3)
 	sounds["life"] = _arp([523, 659, 784, 1047, 1319], 0.09, "square", 0.2)
+	sounds["gem"] = _arp([1047, 1319, 1568, 2093, 2637], 0.06, "sine", 0.28)
 	sounds["checkpoint"] = _arp([392, 523, 659], 0.09, "square", 0.2)
 	sounds["mask"] = _arp([330, 440, 554, 660], 0.07, "sine", 0.3)
 	sounds["fuse"] = _tone(900, 900, 0.07, "square", 0.12)
-	sounds["boom"] = _tone(120, 30, 0.7, "saw", 0.7, 0.85)
+	sounds["boom"] = _boom()
 	sounds["enemy"] = _tone(400, 80, 0.2, "square", 0.25, 0.2)
 	sounds["hurt"] = _tone(600, 100, 0.45, "saw", 0.3, 0.2)
 	sounds["die"] = _arp([523, 440, 349, 262, 196], 0.12, "square", 0.25)
@@ -84,6 +86,61 @@ func _tone(f0: float, f1: float, dur: float, kind: String, vol: float, noise := 
 		var s := lerpf(_wave(kind, phase), randf() * 2.0 - 1.0, noise)
 		var env := (1.0 - t) * minf(1.0, t * 60.0)
 		data.encode_s16(i * 2, int(clampf(s * env * vol, -1.0, 1.0) * 32767.0))
+	return _make_stream(data)
+
+
+# Two bottles clinking: a few high, quickly-decaying glassy partials.
+func _clink() -> AudioStreamWAV:
+	var dur := 0.26
+	var n := int(RATE * dur)
+	var data := PackedByteArray()
+	data.resize(n * 2)
+	for i in n:
+		var ts := float(i) / RATE
+		var s := sin(TAU * 2350.0 * ts) * exp(-ts * 16.0) + 0.6 * sin(TAU * 3520.0 * ts) * exp(-ts * 24.0) \
+			+ 0.35 * sin(TAU * 1760.0 * ts) * exp(-ts * 11.0) + (randf() * 2.0 - 1.0) * exp(-ts * 220.0) * 0.4
+		data.encode_s16(i * 2, int(clampf(s * 0.3, -1.0, 1.0) * 32767.0))
+	return _make_stream(data)
+
+
+# "Bleurgh": a wobbling, gurgling low retch with wet noise on top.
+func _puke() -> AudioStreamWAV:
+	var dur := 1.0
+	var n := int(RATE * dur)
+	var data := PackedByteArray()
+	data.resize(n * 2)
+	var phase := 0.0
+	var lp := 0.0
+	for i in n:
+		var t := float(i) / n
+		var ts := t * dur
+		phase += (140.0 + 45.0 * sin(ts * 38.0) - 85.0 * t) / RATE
+		var gurgle := 0.55 + 0.45 * sin(TAU * (8.0 + 12.0 * t) * ts)
+		lp += (randf() * 2.0 - 1.0 - lp) * 0.18
+		var tone := _wave("saw", phase) * 0.55 + _wave("square", phase * 0.5) * 0.25
+		var s := (tone + lp * 1.1) * gurgle
+		var env := minf(1.0, t * 14.0) * (1.0 if t < 0.72 else 1.0 - (t - 0.72) / 0.28)
+		data.encode_s16(i * 2, int(clampf(s * env * 0.5, -1.0, 1.0) * 32767.0))
+	return _make_stream(data)
+
+
+# Big explosion: a punchy low thump, a long noisy rumble and a crackle.
+func _boom() -> AudioStreamWAV:
+	var dur := 1.1
+	var n := int(RATE * dur)
+	var data := PackedByteArray()
+	data.resize(n * 2)
+	var phase := 0.0
+	var lp := 0.0
+	for i in n:
+		var t := float(i) / n
+		phase += lerpf(95.0, 28.0, minf(1.0, t * 3.0)) / RATE
+		var thump := sin(TAU * phase) * exp(-t * 5.0)
+		lp += (randf() * 2.0 - 1.0 - lp) * lerpf(0.5, 0.06, t)   # noise that darkens over time
+		var rumble := lp * exp(-t * 3.2)
+		var crackle := (randf() * 2.0 - 1.0) * exp(-t * 14.0) * 0.6
+		var s := (thump * 0.9 + rumble * 1.3 + crackle) * minf(1.0, t * 120.0)
+		data.encode_s16(i * 2, int(clampf(s * 0.8, -1.0, 1.0) * 32767.0))
 	return _make_stream(data)
 
 

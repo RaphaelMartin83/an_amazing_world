@@ -16,6 +16,8 @@ var eye_r: Node3D
 var phase := 0.0
 var blink_t := 2.0
 var squash := 0.0
+var skin_mat: StandardMaterial3D
+var puke_green := 0.0
 var flash := 0.0
 
 
@@ -26,6 +28,7 @@ func build(c: Dictionary) -> void:
 	var build_w: float = c.build
 	var skin: Color = c.skin
 	var skin_m := T.mat(skin, true, 0.55)
+	skin_mat = skin_m
 	var shirt_m := T.mat(c.shirt)
 	var pants_m := T.mat(c.pants)
 	var shoe_m := T.mat(c.shoes)
@@ -236,7 +239,9 @@ func _accessory(R: float, fw: float) -> void:
 
 # ---------------------------------------------------------------- animation
 
-func animate(state: String, speed: float, delta: float) -> void:
+# `puking` layers the retching on top of whatever he is doing (full pose only when standing still).
+func animate(state_in: String, speed: float, delta: float, puking := false) -> void:
+	var state := "puke" if (puking and state_in == "idle") else state_in
 	if body == null:
 		return
 	blink_t -= delta
@@ -312,6 +317,17 @@ func animate(state: String, speed: float, delta: float) -> void:
 			t_body_y = absf(sin(t * 7.0)) * 0.18
 			leg_l_x = sin(t * 7.0) * 0.3
 			leg_r_x = -sin(t * 7.0) * 0.3
+		"puke":
+			# doubled over, hands on belly, shaking
+			t_body_x = -0.75
+			t_body_y = -0.12 + sin(t * 45.0) * 0.012
+			head_x = -0.55
+			arm_l_x = 0.9
+			arm_r_x = 0.9
+			arm_l_z = -0.2
+			arm_r_z = 0.2
+			leg_l_x = 0.25
+			leg_r_x = -0.1
 		"dead":
 			arm_l_x = sin(t * 25.0) * 1.5 + 2.5
 			arm_r_x = -sin(t * 25.0) * 1.5 + 2.5
@@ -326,6 +342,11 @@ func animate(state: String, speed: float, delta: float) -> void:
 			arm_l_x = sin(t * 1.7) * 0.06
 			arm_r_x = -sin(t * 1.7) * 0.06
 
+	if puking and state_in != "idle":
+		# running / jumping while retching: head down, leaning forward (slide, spin and slam keep their own pose)
+		if state_in == "run" or state_in == "jump" or state_in == "fall":
+			t_body_x = minf(t_body_x, -0.5)
+		head_x = -0.55
 	body.rotation.x = lerpf(body.rotation.x, t_body_x, k)
 	body.position.y = lerpf(body.position.y, t_body_y, k)
 	arm_l.rotation.x = lerpf(arm_l.rotation.x, arm_l_x, k)
@@ -335,6 +356,11 @@ func animate(state: String, speed: float, delta: float) -> void:
 	leg_l.rotation.x = lerpf(leg_l.rotation.x, leg_l_x, k)
 	leg_r.rotation.x = lerpf(leg_r.rotation.x, leg_r_x, k)
 	head.rotation.x = lerpf(head.rotation.x, head_x, k)
+
+	body.rotation.z = lerpf(body.rotation.z, sin(t * 40.0) * 0.05 if puking else 0.0, k)
+	# a sickly green tinge while he's retching
+	puke_green = move_toward(puke_green, 0.6 if puking else 0.0, delta * (3.0 if puking else 1.2))
+	skin_mat.albedo_color = Color(cfg.skin).lerp(Color(0.55, 0.78, 0.3), puke_green)
 
 	# squash & stretch (decays back to 1)
 	squash = move_toward(squash, 0.0, delta * 3.0)

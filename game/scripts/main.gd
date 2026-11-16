@@ -18,17 +18,27 @@ var state := "title"
 var boulder: Node3D
 var spawn_pos := Vector3.ZERO
 var face_vp: SubViewport
+var selected_level := 0
+const COUNT_FOR_TESTS := Levels.COUNT
 
 
 func _ready() -> void:
 	Game.hero = FriendConfig.HERO
 	_make_face_viewport()
 	hud = Hud.new()
+	hud.level_count = Levels.COUNT
 	add_child(hud)
 	Game.message.connect(hud.show_message)
 	Game.level_completed.connect(_on_level_completed)
-	load_level(0)
-	_show_title()
+	hud.level_requested.connect(_jump_to_level)
+	# `--level=N` on the command line starts straight in level N (e.g. AnAmazingWorld.exe -- --level=3)
+	var start_level := _level_from_args()
+	selected_level = maxi(start_level, 0)
+	load_level(selected_level)
+	if start_level >= 0:
+		_start_playing()
+	else:
+		_show_title()
 	if "--selftest" in OS.get_cmdline_user_args() or "--shots" in OS.get_cmdline_user_args():
 		var dev := preload("res://scripts/dev/selftest.gd").new()
 		dev.main = self
@@ -48,6 +58,44 @@ func _make_face_viewport() -> void:
 	Game.face_texture = face_vp.get_texture()
 
 
+func _level_from_args() -> int:
+	for a in OS.get_cmdline_args() + OS.get_cmdline_user_args():
+		if a.begins_with("--level="):
+			var n := int(a.get_slice("=", 1))
+			if n >= 1 and n <= Levels.COUNT:
+				return n - 1
+	return -1
+
+
+# Title-screen level picker: loads the level behind the title so you see what you're choosing.
+func _select_level(idx: int) -> void:
+	idx = posmod(idx, Levels.COUNT)
+	if idx == selected_level and state == "title" and level_root:
+		_show_title()
+		return
+	selected_level = idx
+	load_level(idx)
+	_show_title()
+	Sfx.play("fruit")
+
+
+# Used by the pause menu: restart the run at the chosen level.
+func _jump_to_level(idx: int) -> void:
+	Game.reset_run()
+	hud.fade_to(0.0, 0.1)
+	hud.hide_screen()
+	selected_level = idx
+	load_level(idx)
+	_start_playing()
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	if state == "title" and event is InputEventKey and event.pressed and not event.echo:
+		var idx: int = int(event.physical_keycode) - KEY_1
+		if idx >= 0 and idx < Levels.COUNT:
+			_select_level(idx)
+
+
 func _show_title() -> void:
 	state = "title"
 	var hero_name := str(Game.hero.name)
@@ -55,7 +103,7 @@ func _show_title() -> void:
 		"Move: WASD / arrows / left stick     Jump: Space / A  (press again in the air = double jump)\n" +
 		"FART ATTACK: J / X / mouse click / X-button     Slide: C / Ctrl / B  (jump out of it = long jump)\n" +
 		"Slide in mid-air = body slam     Esc: pause     R: restart level",
-		"- press ENTER to start -")
+		"<   %s   >     (A / D or 1-%d to pick a level)\n- press ENTER to start -" % [Levels.NAMES[selected_level], Levels.COUNT])
 	if player:
 		player.controls_enabled = false
 
@@ -87,6 +135,8 @@ func load_level(idx: int) -> void:
 	cam_rig.look_offset = info.camera_look
 	level_root.add_child(cam_rig)
 	cam_rig.snap()
+	if info.theme.get("snow", false):
+		_add_snowfall()
 
 	boulder = info.boulder
 	var total := 0
@@ -94,7 +144,40 @@ func load_level(idx: int) -> void:
 		if c.counts_for_total:
 			total += 1
 	Game.crates_total = total
+	Game.gems_total = get_tree().get_nodes_in_group("gem").size()
 	Game.changed.emit()
+
+
+# Falling snow that follows the camera.
+func _add_snowfall() -> void:
+	var p := CPUParticles3D.new()
+	var flake := SphereMesh.new()
+	flake.radius = 0.07
+	flake.height = 0.14
+	flake.radial_segments = 6
+	flake.rings = 3
+	p.mesh = flake
+	var m := StandardMaterial3D.new()
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.albedo_color = Color(1, 1, 1, 0.9)
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	p.material_override = m
+	p.amount = 800
+	p.lifetime = 7.0
+	p.preprocess = 7.0
+	p.local_coords = false
+	p.emission_shape = CPUParticles3D.EMISSION_SHAPE_BOX
+	p.emission_box_extents = Vector3(26.0, 0.5, 26.0)
+	p.position = Vector3(0, 12.0, -10.0)
+	p.direction = Vector3(0, -1, 0)
+	p.spread = 15.0
+	p.initial_velocity_min = 0.3
+	p.initial_velocity_max = 1.2
+	p.gravity = Vector3(-0.5, -2.2, 0.4)
+	p.scale_amount_min = 0.6
+	p.scale_amount_max = 1.5
+	p.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	cam_rig.camera.add_child(p)
 
 
 func _make_environment(theme: Dictionary) -> void:
@@ -146,6 +229,10 @@ func _process(_delta: float) -> void:
 		"title":
 			if Input.is_action_just_pressed("confirm"):
 				_start_playing()
+			elif Input.is_action_just_pressed("move_left"):
+				_select_level(selected_level - 1)
+			elif Input.is_action_just_pressed("move_right"):
+				_select_level(selected_level + 1)
 		"complete_wait":
 			if Input.is_action_just_pressed("confirm"):
 				_next_level()
@@ -175,7 +262,7 @@ func _on_player_died() -> void:
 	if Game.lives <= 0:
 		state = "gameover"
 		hud.fade_to(0.55, 0.6)
-		hud.show_screen("GAME OVER", "", "mangoes: %d   crates: %d / %d" % [Game.fruit, Game.crates_broken, Game.crates_total], "- press ENTER to try again -")
+		hud.show_screen("GAME OVER", "", "beers: %d   crates: %d / %d" % [Game.fruit, Game.crates_broken, Game.crates_total], "- press ENTER to try again -")
 		return
 	var lvl := level_index
 	hud.fade_to(1.0, 0.25)
@@ -210,7 +297,7 @@ func _on_level_completed() -> void:
 	if state != "complete":
 		return
 	var last := level_index >= Levels.COUNT - 1
-	var stats := "mangoes: %d     crates: %d / %d     lives: %d" % [Game.fruit, Game.crates_broken, Game.crates_total, Game.lives]
+	var stats := "beers: %d     crates: %d / %d     lives: %d" % [Game.fruit, Game.crates_broken, Game.crates_total, Game.lives]
 	if last:
 		hud.show_screen("THE END", "thanks for playing, %s!" % str(Game.hero.name), stats, "- press ENTER to play again -")
 	else:

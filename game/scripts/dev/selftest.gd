@@ -88,6 +88,17 @@ func _release_all() -> void:
 # ------------------------------------------------------------------ tests
 
 func _selftest() -> void:
+	print("== level select")
+	main._show_title()
+	main._select_level(2)
+	_check(main.level_index == 2 and main.state == "title", "title screen: picking 3 loads the sewer")
+	main._select_level(main.COUNT_FOR_TESTS - 1)
+	main._select_level(main.selected_level + 1)
+	_check(main.level_index == 0, "title screen: next level after the last wraps around to 1")
+	main.hud.level_requested.emit(1)
+	await frames(2)
+	_check(main.level_index == 1 and main.state == "playing", "pause menu: jumping to level 2 starts it")
+	_check(main._level_from_args() == -1, "no --level argument by default")
 	print("== mechanics")
 	main.load_level(0)
 	main._start_playing()
@@ -119,17 +130,152 @@ func _selftest() -> void:
 	_release_taps()
 	await frames(10)
 	_check(Game.crates_broken == before + 1, "fart attack breaks the crate in front")
-	_check(Game.fruit == fruit_before + 1, "breaking a crate gives a mango")
+	_check(Game.fruit == fruit_before + 1, "breaking a crate gives a beer")
 
 	# jump on a crate
 	p.respawn(Vector3(2.5, 3.0, -9.0))
 	await frames(40)
 	_check(Game.crates_broken == before + 2, "landing on a crate breaks it")
 
+	# bounce crate: hold jump while landing on it -> reach the gem above
+	var gems0 := Game.gems
+	_hold("jump", 1.0)
+	p.respawn(Vector3(3.2, 4.0, -17.0))
+	p.invuln = 0.0
+	await frames(70)
+	_hold("jump", 0.0)
+	_check(Game.gems == gems0 + 1, "bouncing high on a bounce crate collects the gem above it")
+
+	# TNT: explodes after the fuse, spawns the explosion effect and hurts a nearby hero
+	main.load_level(0)
+	main._start_playing()
+	p = main.player
+	await frames(30)
+	var tnt: Node3D = preload("res://scripts/crate.gd").new()
+	main.level_root.add_child(tnt)
+	tnt.setup("boom")
+	tnt.position = Vector3(0, 0.5, -3.0)
+	p.respawn(Vector3(0, 0.05, -1.5))
+	p.invuln = 0.0
+	p.model.flash = 0.0
+	tnt.hit(null, "spin")
+	await frames(3 * 60 + 20)
+	var fx := 0
+	for c in main.level_root.get_children():
+		if c.get_script() == preload("res://scripts/explosion.gd"):
+			fx += 1
+	_check(fx == 1, "TNT spawns an explosion effect")
+	_check(p.dead, "TNT explosion hurts a hero standing next to it")
+	_check(not is_instance_valid(tnt) or tnt.broken, "TNT crate is gone after exploding")
+
+	print("== beers and puking")
+	main.load_level(0)
+	main._start_playing()
+	p = main.player
+	await frames(30)
+	var lives_before := Game.lives
+	Game.fruit = 98
+	Game.add_fruit(1)
+	_check(Game.fruit == 99 and p.puke_t <= 0.0, "99 beers: no puking yet")
+	Game.add_fruit(1)
+	await frames(4)
+	_check(Game.fruit == 0 and Game.lives == lives_before + 1, "100 beers: counter resets and he gets an extra life")
+	_check(p.puke_t > 0.0, "100 beers: Palmouze pukes")
+	await frames(20)
+	_check(p.model.puke_green > 0.2, "100 beers: his face turns green")
+	# he keeps full control while puking: run, jump, fart
+	var pz := p.global_position.z
+	_hold("move_forward", 1.0)
+	_tap("jump", 15)
+	await frames(18)
+	_check(p.puke_t > 0.0 and not p.is_on_floor(), "he can jump while puking")
+	await frames(30)
+	_check(pz - p.global_position.z > 3.0, "he can run while puking (%.1f m)" % (pz - p.global_position.z))
+	_release_taps()
+	_hold("move_forward", 0.0)
+	await frames(20)
+	var gb := Game.crates_broken
+	p.respawn(Vector3(0, 0.05, -7.6))   # right behind the crate row
+	await frames(10)
+	Game.fruit = 99
+	Game.add_fruit(1)
+	_tap("spin")
+	await frames(3)
+	_release_taps()
+	await frames(10)
+	_check(p.puke_t > 0.0 and Game.crates_broken == gb + 1, "he can fart-attack while puking")
+	await frames(110)
+	_check(p.puke_t <= 0.0 and not p.dead and p.model.puke_green < 0.05, "the puke ends and he is back to normal")
+	var puddles := 0
+	for c in main.level_root.get_children():
+		if c is Node3D and c.get_child_count() == 7 and c.get_child(0) is MeshInstance3D:
+			puddles += 1
+	_check(puddles >= 1, "a puddle is left on the floor")
+
+	print("== new mechanics")
+	main.load_level(3)
+	main._start_playing()
+	p = main.player
+	await frames(30)
+	p.respawn(Vector3(0, 0.1, -59.0))   # on the conveyor belt (pushes towards +Z)
+	await frames(10)
+	var cz0 := p.global_position.z
+	await frames(60)
+	_check(p.global_position.z - cz0 > 3.0, "conveyor belt carries the hero backwards (%.1f m in 1 s)" % (p.global_position.z - cz0))
+	main.load_level(5)
+	main._start_playing()
+	p = main.player
+	await frames(30)
+	p.respawn(Vector3(0, 0.1, -20.0))   # on ice
+	await frames(15)
+	_hold("move_forward", 1.0)
+	await frames(60)
+	_hold("move_forward", 0.0)
+	await frames(8)
+	var ice_speed := Vector2(p.velocity.x, p.velocity.z).length()
+	p.respawn(Vector3(0, 0.1, -5.0))    # on plain snow
+	await frames(15)
+	_hold("move_forward", 1.0)
+	await frames(60)
+	_hold("move_forward", 0.0)
+	await frames(8)
+	var snow_speed := Vector2(p.velocity.x, p.velocity.z).length()
+	_check(ice_speed > 4.0 and snow_speed < 1.0, "ice is slippery (still moving at %.1f m/s vs %.1f on snow)" % [ice_speed, snow_speed])
+	main.load_level(4)
+	main._start_playing()
+	p = main.player
+	await frames(30)
+	var wv: Node3D = get_tree().get_nodes_in_group("wave")[0]
+	p.respawn(Vector3(0, 0.05, wv.global_position.z))
+	p.invuln = 0.0
+	p.model.flash = 0.0
+	wv.t = 2.4 + 1.0 + 0.35 + 0.1     # mid-surge
+	await frames(6)
+	_check(p.dead, "a tidal wave at full height hurts the hero")
+	main.load_level(4)
+	main._start_playing()
+	p = main.player
+	await frames(30)
+	wv = get_tree().get_nodes_in_group("wave")[0]
+	p.respawn(Vector3(0, 0.05, wv.global_position.z))
+	p.invuln = 0.0
+	p.model.flash = 0.0
+	wv.t = 0.3                          # calm
+	await frames(20)
+	_check(not p.dead, "the same spot is safe while the water is calm")
+
 	print("== bot plays level 1 (Jungle Run)")
 	await _play(0, 150.0)
 	print("== bot plays level 2 (Boulder Rush)")
 	await _play(1, 150.0)
+	print("== bot plays level 3 (Sewer Surge)")
+	await _play(2, 150.0)
+	print("== bot plays level 4 (Neon Rooftops)")
+	await _play(3, 200.0)
+	print("== bot plays level 5 (Sunny Shores)")
+	await _play(4, 200.0)
+	print("== bot plays level 6 (Frozen Peaks)")
+	await _play(5, 200.0)
 	print("== result: %s (%d failures)" % ["OK" if failures == 0 else "FAILED", failures])
 
 
@@ -137,7 +283,7 @@ func _play(idx: int, timeout_s: float) -> void:
 	Game.reset_run()
 	main.load_level(idx)
 	main._start_playing()
-	var dir := Vector3(0, 0, -1) if idx == 0 else Vector3(0, 0, 1)
+	var dir := Vector3(0, 0, 1) if idx == 1 else Vector3(0, 0, -1)
 	var lives0 := Game.lives
 	deaths = 0
 	death_log.clear()
@@ -156,7 +302,7 @@ func _play(idx: int, timeout_s: float) -> void:
 		_bot_step(dir)
 	_release_all()
 	var done: bool = main.state == "complete" or main.state == "complete_wait"
-	print("  finished=%s  time=%.1fs  deaths=%d %s  mangoes=%d  crates=%d/%d" % [str(done), t, deaths, str(death_log), Game.fruit, Game.crates_broken, Game.crates_total])
+	print("  finished=%s  time=%.1fs  deaths=%d %s  beers=%d  crates=%d/%d" % [str(done), t, deaths, str(death_log), Game.fruit, Game.crates_broken, Game.crates_total])
 	_check(done, "level %d is completable by the bot" % (idx + 1))
 	await frames(5)
 	if main.state != "complete_wait" and main.state != "complete":
@@ -234,6 +380,12 @@ func _bot_step(dir: Vector3) -> void:
 		for m in get_tree().get_nodes_in_group("mover"):
 			ms += " m(%.1f,%.1f,%.1f)" % [m.global_position.x, m.global_position.y, m.global_position.z]
 		print("      x=%.2f z=%.2f y=%.2f vy=%.1f vx=%.1f floor=%s jump=%s airj=%d go=%.0f %s" % [pos.x, pos.z, pos.y, p.velocity.y, p.velocity.x, str(on_floor), str(jump), p.air_jumps, go, ms])
+	# tidal waves: wait until there is enough calm left to run across
+	for w in get_tree().get_nodes_in_group("wave"):
+		var wa: float = (w.global_position - pos).dot(dir)
+		if wa > 2.6 and wa < 9.0 and not w.is_safe():
+			go = 0.0
+
 	# steer to the middle of the path (or towards the next moving platform)
 	var tx := 0.0
 	var best := 99.0
@@ -265,11 +417,37 @@ func _shots() -> void:
 		[0, "L1_plaza", Vector3(0, 0.05, -97), 0],
 		[0, "L1_movers", Vector3(0, 0.05, -120), 0],
 		[0, "L1_spinners", Vector3(0, 0.05, -160), 0],
+		[0, "L1_spinner_close", Vector3(0, 0.05, -163), 0],
 		[0, "L1_goal", Vector3(0, 3.05, -203), 0],
 		[1, "L2_start", Vector3(0, 0.05, -92), 1],
 		[1, "L2_mid", Vector3(0, 0.05, -30), 1],
 		[1, "L2_causeway", Vector3(0, 0.05, 28), 1],
+		[2, "L3_start", Vector3(0, 0.05, -1), 2],
+		[2, "L3_crumble", Vector3(0, 0.05, -58), 2],
+		[2, "L3_toys", Vector3(0, 0.05, -95), 2],
+		[2, "L3_movers", Vector3(0, 0.05, -118), 2],
+		[2, "L3_pump", Vector3(0, 0.05, -152), 2],
+		[3, "L4_start", Vector3(0, 0.05, -1), 3],
+		[3, "L4_conveyor", Vector3(0, 0.05, -47), 3],
+		[3, "L4_stairs", Vector3(0, 0.05, -90), 3],
+		[3, "L4_movers", Vector3(0, 2.65, -118), 3],
+		[3, "L4_garden", Vector3(0, 2.65, -156), 3],
+		[3, "L4_scaffold", Vector3(0, 2.65, -186), 3],
+		[4, "L5_start", Vector3(0, 0.05, -1), 4],
+		[4, "L5_boardwalk", Vector3(0, 0.05, -46), 4],
+		[4, "L5_rafts", Vector3(0, 0.05, -90), 4],
+		[4, "L5_wave", Vector3(0, 0.05, -122), 4],
+		[4, "L5_pier", Vector3(0, 0.05, -154), 4],
+		[5, "L6_start", Vector3(0, 0.05, -1), 5],
+		[5, "L6_ice", Vector3(0, 0.05, -16), 5],
+		[5, "L6_floes", Vector3(0, 0.05, -42), 5],
+		[5, "L6_rink", Vector3(0, 0.05, -96), 5],
+		[5, "L6_climb", Vector3(0, 1.35, -142), 5],
+		[5, "L6_summit", Vector3(0, 3.95, -180), 5],
 	]
+	main._select_level(1)
+	await frames(30)
+	_save(out, "title")
 	var cur := -1
 	for s in spots:
 		if cur != s[0]:
@@ -286,10 +464,105 @@ func _shots() -> void:
 		main.cam_rig.snap()
 		if main.boulder:
 			main.boulder.active = false
+		if str(s[1]) == "L5_wave":
+			for w in get_tree().get_nodes_in_group("wave"):
+				w.t = 2.4 + 1.0 + 0.35 + 0.1
 		await frames(50)
 		main.cam_rig.snap()
 		await frames(4)
 		_save(out, s[1])
+	# TNT: lit fuse, then the explosion at three moments
+	main.load_level(0)
+	main._start_playing()
+	main.hud.hide_screen()
+	main.hud.banner.modulate.a = 0.0
+	main.player.respawn(Vector3(0, 0.05, -1))
+	main.player.invuln = 0.0
+	main.player.model.flash = 0.0
+	main.cam_rig.snap()
+	var tnt: Node3D = preload("res://scripts/crate.gd").new()
+	main.level_root.add_child(tnt)
+	tnt.setup("boom")
+	tnt.position = Vector3(0, 0.5, -6.5)
+	await frames(30)
+	tnt.hit(null, "spin")
+	await frames(50)
+	_save(out, "boom_fuse")
+	tnt.fuse = 0.02
+	await frames(10)
+	_save(out, "boom_1")
+	await frames(10)
+	_save(out, "boom_2")
+	await frames(35)
+	_save(out, "boom_3")
+	# a bounce crate with its gem
+	main.player.respawn(Vector3(0, 0.05, -12))
+	main.player.invuln = 0.0
+	main.player.model.flash = 0.0
+	main.cam_rig.snap()
+	await frames(40)
+	main.cam_rig.camera.fov = 75
+	await frames(5)
+	_save(out, "bounce_gem")
+	main.cam_rig.camera.fov = 62
+	# beer bottle close-up and the puke
+	main.player.respawn(Vector3(0, 0.05, -2))
+	main.player.invuln = 0.0
+	main.player.model.flash = 0.0
+	main.cam_rig.snap()
+	await frames(30)
+	var bottle: Node3D = preload("res://scripts/fruit.gd").new()
+	main.level_root.add_child(bottle)
+	bottle.set_physics_process(false)    # keep the player's magnet from collecting it
+	bottle.global_position = main.player.global_position + Vector3(1.2, 1.5, 1.0)
+	var bcam := Camera3D.new()
+	main.level_root.add_child(bcam)
+	bcam.fov = 40
+	bcam.look_at_from_position(bottle.global_position + Vector3(0.0, 0.1, 1.6), bottle.global_position, Vector3.UP)
+	bcam.current = true
+	main.hud.visible = false
+	await frames(14)
+	_save(out, "bottle")
+	if is_instance_valid(bottle):
+		bottle.queue_free()
+	bcam.queue_free()
+	main.hud.visible = true
+	Game.fruit = 99
+	Game.add_fruit(1)
+	main.cam_rig.camera.current = true
+	await frames(22)
+	_save(out, "puke_1")
+	await frames(14)
+	_save(out, "puke_2")
+	var scam := Camera3D.new()
+	main.level_root.add_child(scam)
+	scam.fov = 45
+	var sp: Vector3 = main.player.global_position
+	scam.look_at_from_position(sp + Vector3(5.5, 1.7, -1.5), sp + Vector3(0, 1.0, -1.8), Vector3.UP)
+	scam.current = true
+	main.hud.visible = false
+	await frames(2)
+	_save(out, "puke_side")
+	scam.queue_free()
+	main.cam_rig.camera.current = true
+	main.hud.visible = true
+	await frames(30)
+	_save(out, "puke_3")
+	await frames(40)
+	main.player.respawn(Vector3(0, 0.05, -2))
+	main.player.invuln = 0.0
+	main.player.model.flash = 0.0
+	main.cam_rig.snap()
+	await frames(20)
+	_hold("move_forward", 1.0)
+	await frames(10)
+	Game.fruit = 99
+	Game.add_fruit(1)
+	await frames(28)
+	_save(out, "puke_run")
+	_hold("move_forward", 0.0)
+	await frames(60)
+
 	# the fart attack, mid-twirl
 	main.load_level(0)
 	main._start_playing()

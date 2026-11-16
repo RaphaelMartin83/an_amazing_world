@@ -31,6 +31,12 @@ func _ready() -> void:
 	add_child(body)
 	if kind == "spiky":
 		_build_spiky()
+	elif kind == "slime":
+		_build_slime()
+	elif kind == "drone":
+		_build_drone()
+	elif kind == "penguin":
+		_build_penguin()
 	else:
 		_build_crab()
 
@@ -54,6 +60,56 @@ func _build_crab() -> void:
 		for i in 3:
 			var leg := T.capsule(body, 0.04, 0.4, Vector3(sx * 0.55, 0.12, -0.25 + i * 0.25), dark)
 			leg.rotation.z = sx * 0.9
+
+
+func _build_slime() -> void:
+	var goo := T.mat(Color(0.45, 0.85, 0.2), true, 0.25)
+	T.sphere(body, 0.55, Vector3(0, 0.45, 0), goo, Vector3(1.15, 0.85, 1.0))
+	T.sphere(body, 0.3, Vector3(-0.3, 0.2, -0.3), goo, Vector3(1.0, 0.6, 1.0))
+	T.sphere(body, 0.22, Vector3(0.38, 0.15, -0.25), goo, Vector3(1.0, 0.6, 1.0))
+	T.sphere(body, 0.13, Vector3(-0.2, 0.75, -0.1), T.emissive(Color(0.8, 1.0, 0.6), 0.5))
+	for sx in [-1.0, 1.0]:
+		var eye := T.sphere(body, 0.16, Vector3(sx * 0.22, 0.55, -0.45), T.mat(Color.WHITE, true, 0.3, null, 0.02))
+		T.sphere(eye, 0.08, Vector3(0, 0, -0.1), T.mat(Color(0.05, 0.05, 0.1), false))
+		var brow := T.box(body, Vector3(0.24, 0.06, 0.06), Vector3(sx * 0.22, 0.76, -0.45), T.mat(Color(0.1, 0.2, 0.05), false))
+		brow.rotation.z = sx * 0.45
+
+
+func _build_drone() -> void:
+	var shell := T.mat(Color(0.75, 0.78, 0.85), true, 0.3)
+	var dark := T.mat(Color(0.2, 0.22, 0.28), true, 0.4)
+	T.sphere(body, 0.45, Vector3(0, 0.75, 0), shell, Vector3(1.2, 0.8, 1.2))
+	T.sphere(body, 0.2, Vector3(0, 0.72, -0.5), T.emissive(Color(1.0, 0.15, 0.1), 3.0))
+	T.cylinder(body, 0.08, 0.08, 0.35, Vector3(0, 1.12, 0), dark, 8)
+	for sx in [-1.0, 1.0]:
+		var arm := T.cylinder(body, 0.05, 0.05, 0.7, Vector3(sx * 0.6, 0.85, 0), dark, 8)
+		arm.rotation.z = PI / 2.0
+		var rotor := Node3D.new()
+		rotor.position = Vector3(sx * 0.95, 0.95, 0)
+		body.add_child(rotor)
+		var blades := T.cylinder(rotor, 0.5, 0.5, 0.03, Vector3.ZERO, T.mat(Color(0.4, 0.45, 0.55, 1.0), false), 3)
+		blades.name = "Blades"
+		claws.append(rotor)
+
+
+func _build_penguin() -> void:
+	var black := T.mat(Color(0.1, 0.12, 0.2), true, 0.5)
+	var white := T.mat(Color(0.97, 0.97, 1.0), false, 0.5)
+	var orange := T.mat(Color(1.0, 0.6, 0.1), true, 0.5)
+	T.capsule(body, 0.42, 1.2, Vector3(0, 0.62, 0), black)
+	T.sphere(body, 0.36, Vector3(0, 0.55, -0.22), white, Vector3(1.0, 1.25, 0.7))
+	T.sphere(body, 0.3, Vector3(0, 1.28, 0), black)
+	T.cylinder(body, 0.0, 0.1, 0.28, Vector3(0, 1.22, -0.36), orange, 8).rotation.x = -PI / 2.0
+	for sx in [-1.0, 1.0]:
+		var eye := T.sphere(body, 0.09, Vector3(sx * 0.13, 1.36, -0.24), T.mat(Color.WHITE, false))
+		T.sphere(eye, 0.045, Vector3(0, 0, -0.06), T.mat(Color(0.05, 0.05, 0.1), false))
+		var flip := Node3D.new()
+		flip.position = Vector3(sx * 0.42, 0.85, 0)
+		body.add_child(flip)
+		var fl := T.capsule(flip, 0.07, 0.5, Vector3(sx * 0.08, -0.2, 0), black)
+		fl.rotation.z = sx * 0.3
+		claws.append(flip)
+		T.sphere(body, 0.14, Vector3(sx * 0.2, 0.05, -0.12), orange, Vector3(1.0, 0.4, 1.5))
 
 
 func _build_spiky() -> void:
@@ -89,6 +145,19 @@ func _physics_process(delta: float) -> void:
 		for i in claws.size():
 			claws[i].rotation.x = sin(t * 7.0 + i * PI) * 0.4
 		body.position.y = absf(sin(t * 6.0)) * 0.06
+	elif kind == "drone":
+		body.position.y = sin(t * 3.0) * 0.14
+		for i in claws.size():
+			claws[i].rotation.y += delta * 40.0
+		body.rotation.y = lerp_angle(body.rotation.y, 0.0, 0.1)
+	elif kind == "penguin":
+		body.rotation.z = sin(t * 8.0) * 0.13
+		body.position.y = absf(sin(t * 8.0)) * 0.05
+		for i in claws.size():
+			claws[i].rotation.z = sin(t * 8.0 + i * PI) * 0.5
+	elif kind == "slime":
+		body.scale = Vector3(1.0 - sin(t * 5.0) * 0.06, 1.0 + sin(t * 5.0) * 0.1, 1.0 - sin(t * 5.0) * 0.06)
+		body.position.y = absf(sin(t * 2.5)) * 0.12
 	else:
 		body.rotation.x = sin(t * 3.0) * 0.08
 
