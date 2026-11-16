@@ -41,6 +41,22 @@ tools/godot.sh godot --headless --path game -- --selftest   # run the tests only
 Windows builds are cross-exported from Linux. They are not code-signed, so Windows SmartScreen may warn on first run
 ("More info" → "Run anyway").
 
+## CI / releases
+
+* **CI** (`.github/workflows/ci.yml`): every pull request into `main` builds the Docker toolchain, runs the self-test
+  (a bot plays both levels), exports Windows + Linux and attaches the binaries to the run as an artifact (14 days).
+* **CD** (`.github/workflows/release.yml`): pushing a tag `v*` **that points at a commit on `main`** repeats the build
+  and publishes a GitHub release with `AnAmazingWorld-<tag>-windows-x86_64.zip`,
+  `AnAmazingWorld-<tag>-linux-x86_64.tar.gz` and `SHA256SUMS.txt`. Tags like `v1.0.0-rc1` become pre-releases.
+  Tags on other branches are rejected.
+
+```bash
+git checkout main && git pull
+git tag v1.0.0 && git push origin v1.0.0
+```
+
+Both workflows share `.github/workflows/build.yml`; packaging is `tools/package.sh <version>`.
+
 ## Layout
 
 * `Dockerfile`, `tools/` — build environment and scripts

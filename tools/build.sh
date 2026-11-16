@@ -5,7 +5,8 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-docker build -t crash-friend-godot .
+# CI builds (and caches) the image beforehand and sets SKIP_IMAGE_BUILD=1
+[[ -n "${SKIP_IMAGE_BUILD:-}" ]] || docker build -t crash-friend-godot .
 
 # import resources (creates game/.godot)
 tools/godot.sh godot --headless --path game --import >/dev/null 2>&1 || true
