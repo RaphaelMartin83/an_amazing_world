@@ -448,6 +448,7 @@ func _shots() -> void:
 	main._select_level(1)
 	await frames(30)
 	_save(out, "title")
+	await _belt_motion(out)
 	var cur := -1
 	for s in spots:
 		if cur != s[0]:
@@ -607,3 +608,58 @@ func _save(dir: String, name: String) -> void:
 	var img := get_viewport().get_texture().get_image()
 	img.save_png(dir.path_join(name + ".png"))
 	print("saved ", name, " ", img.get_size())
+
+
+# Measures which way the conveyor's chevrons move on screen (camera straight above, screen-up = -Z) and
+# compares it with the direction the belt really pushes.
+func _belt_motion(out: String) -> void:
+	main.load_level(3)
+	main._start_playing()
+	main.hud.hide_screen()
+	main.hud.visible = false
+	main.player.respawn(Vector3(0, 0.05, -40))
+	main.player.invuln = 0.0
+	var belt: StaticBody3D = null
+	for n in main.level_root.get_children():
+		if n is StaticBody3D and n.constant_linear_velocity.length() > 0.1:
+			belt = n
+	var cam := Camera3D.new()
+	main.level_root.add_child(cam)
+	cam.fov = 40
+	var bz := belt.global_position.z
+	cam.look_at_from_position(Vector3(0, 12, bz), Vector3(0, 0, bz), Vector3(0, 0, -1))
+	cam.current = true
+	await frames(20)
+	var a := get_viewport().get_texture().get_image()
+	await frames(6)
+	var b := get_viewport().get_texture().get_image()
+	a.save_png(out.path_join("belt_a.png"))
+	b.save_png(out.path_join("belt_b.png"))
+	var cx := a.get_width() / 2
+	var rows := a.get_height()
+	var pa: Array[float] = []
+	var pb: Array[float] = []
+	for y in rows:
+		var sa := 0.0
+		var sb := 0.0
+		for x in range(cx - 40, cx + 40, 4):
+			sa += a.get_pixel(x, y).get_luminance()
+			sb += b.get_pixel(x, y).get_luminance()
+		pa.append(sa)
+		pb.append(sb)
+	var best := 0
+	var best_err := INF
+	for shift in range(-60, 61):
+		var err := 0.0
+		for y in range(130, rows - 130):
+			err += absf(pa[y] - pb[y + shift])
+		if err < best_err:
+			best_err = err
+			best = shift
+	# feature at row y in frame A is at row y+best in frame B: negative = moved UP the screen = towards -Z
+	var visual_z := -1.0 if best < 0 else 1.0
+	var physical_z := signf(belt.constant_linear_velocity.z)
+	print("belt: chevrons shift %d px (screen %s); belt pushes towards %s" % [best, "UP (-Z, away from the camera)" if best < 0 else "DOWN (+Z, towards the camera)", "-Z (away from the camera)" if physical_z < 0 else "+Z (towards the camera)"])
+	_check(best != 0 and visual_z == physical_z, "conveyor: the chevrons move the way the belt pushes")
+	cam.queue_free()
+	main.hud.visible = true
