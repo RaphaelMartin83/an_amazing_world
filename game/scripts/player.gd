@@ -354,6 +354,10 @@ func _physics_process(delta: float) -> void:
 		last_floor_y = global_position.y
 		if not was_on_floor:
 			_on_land()
+		elif slamming:
+			# the slam started in the very frame he touched down, so the "just landed" edge never fired:
+			# never leave the slam state (which zeroes all horizontal movement) switched on while grounded
+			_on_land()
 	else:
 		coyote -= delta
 

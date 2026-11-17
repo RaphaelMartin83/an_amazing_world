@@ -168,6 +168,30 @@ func _selftest() -> void:
 	_check(p.dead, "TNT explosion hurts a hero standing next to it")
 	_check(not is_instance_valid(tnt) or tnt.broken, "TNT crate is gone after exploding")
 
+	print("== slide / slam edge cases")
+	main.load_level(0)
+	main._start_playing()
+	p = main.player
+	await frames(30)
+	var stuck := 0
+	for delay in range(0, 22):
+		p.respawn(Vector3(0, 0.55, -3.0))     # drops ~0.55 m; slide is tapped at every moment around the landing
+		await frames(delay)
+		_tap("slide")
+		await frames(3)
+		_release_taps()
+		await frames(50)
+		if p.slamming or p.slam_recover > 0.0 or p.slide_t > 0.0:
+			stuck += 1
+		else:
+			_hold("move_forward", 1.0)
+			var zz := p.global_position.z
+			await frames(20)
+			_hold("move_forward", 0.0)
+			if zz - p.global_position.z < 1.5:
+				stuck += 1
+	_check(stuck == 0, "pressing slide at any moment around a landing never leaves him stuck (%d stuck of 22)" % stuck)
+
 	print("== beers and puking")
 	main.load_level(0)
 	main._start_playing()
