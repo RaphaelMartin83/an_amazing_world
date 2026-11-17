@@ -7,6 +7,7 @@ const CameraRig = preload("res://scripts/camera_rig.gd")
 const Hud = preload("res://scripts/hud.gd")
 const FaceIcon = preload("res://scripts/face_icon.gd")
 const FriendConfig = preload("res://scripts/friend_config.gd")
+const Credits = preload("res://scripts/credits.gd")
 
 var level_root: Node3D
 var player: CharacterBody3D
@@ -302,11 +303,30 @@ func _on_level_completed() -> void:
 	if state != "complete":
 		return
 	var last := level_index >= Levels.COUNT - 1
-	var stats := "beers: %d     crates: %d / %d     lives: %d" % [Game.fruit, Game.crates_broken, Game.crates_total, Game.lives]
 	if last:
-		hud.show_screen("THE END", "thanks for playing, %s!" % str(Game.hero.name), stats, "- press ENTER to play again -")
+		_start_credits()
 	else:
+		var stats := "beers: %d     crates: %d / %d     lives: %d" % [Game.fruit, Game.crates_broken, Game.crates_total, Game.lives]
 		hud.show_screen("LEVEL COMPLETE!", str(info.title), stats, "- press ENTER for the next level -")
+		state = "complete_wait"
+
+
+# After the last boss: the birthday credits, then the "THE END" screen.
+func _start_credits() -> void:
+	state = "credits"
+	hud.visible = false
+	var c := Credits.new()
+	c.name = "Credits"
+	add_child(c)
+	c.finished.connect(_on_credits_finished.bind(c))
+	c.start(str(Game.hero.name))
+
+
+func _on_credits_finished(c: Node) -> void:
+	c.queue_free()
+	hud.visible = true
+	var stats := "beers: %d     crates: %d / %d     lives: %d" % [Game.fruit, Game.crates_broken, Game.crates_total, Game.lives]
+	hud.show_screen("THE END", "thanks for playing, %s!" % str(Game.hero.name), stats, "- press ENTER to play again -")
 	state = "complete_wait"
 
 

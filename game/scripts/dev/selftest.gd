@@ -312,6 +312,9 @@ func _selftest() -> void:
 	print("== boss: Don Humo (the cigar)")
 	await _cigar_tests()
 
+	print("== credits")
+	await _credits_tests()
+
 	print("== bot plays level 1 (Jungle Run)")
 	await _play(0, 150.0)
 	print("== bot plays level 2 (Boulder Rush)")
@@ -493,12 +496,16 @@ func _shots() -> void:
 		[Levels.idx("snow"), "L6_climb", Vector3(0, 1.35, -142), 5],
 		[Levels.idx("snow"), "L6_summit", Vector3(0, 3.95, -180), 5],
 	]
+	if "--only=credits" in OS.get_cmdline_user_args():
+		await _credits_shots(out)
+		return
 	main._select_level(1)
 	await frames(30)
 	_save(out, "title")
 	await _belt_motion(out)
 	await _boss_shots(out)
 	await _cigar_shots(out)
+	await _credits_shots(out)
 	var cur := -1
 	for s in spots:
 		if cur != s[0]:
@@ -1143,3 +1150,68 @@ func _cigar_shots(out: String) -> void:
 	_save(out, "cigar_death")
 	await frames(140)
 	_save(out, "cigar_goal")
+
+
+# ------------------------------------------------------------------ credits
+
+func _credits_tests() -> void:
+	main.load_level(Levels.idx("brewery"))
+	main._start_playing()
+	await frames(10)
+	main._start_credits()
+	await frames(5)
+	_check(main.state == "credits" and main.has_node("Credits"), "the credits start after the last boss")
+	var c: CanvasLayer = main.get_node("Credits")
+	var lines: Array = c.credit_lines
+	_check("Starring: Palmouze" in lines and "Made by: Love for Palmouze" in lines and "Inspired by: Palmouze" in lines,
+		"the credits say Starring / Made by: Love for / Inspired by Palmouze (%s)" % str(lines))
+	_check(Sfx.sounds.has("birthday") and Sfx.sounds["birthday"].get_length() > 10.0, "the birthday tune plays (%.1f s long)" % Sfx.sounds["birthday"].get_length())
+	c.t = 5.0
+	await frames(3)
+	_check(c.title_box.modulate.a > 0.95 and c.section_box.get_parent().modulate.a < 0.05, "at the start the big HAPPY BIRTHDAY title is showing")
+	_check(not main.hud.visible, "the HUD is hidden during the credits")
+	var expected := [["Starring", "Palmouze"], ["Made by", "Love for Palmouze"], ["Inspired by", "Palmouze"]]
+	for i in 3:
+		c.t = 12.8 + i * 3.8 + 1.5
+		await frames(3)
+		_check(c.role_label.text == expected[i][0] and c.name_label.text == expected[i][1] and c.section_box.get_parent().modulate.a > 0.95 and c.title_box.modulate.a < 0.05,
+			"credit %d shows \"%s: %s\"" % [i + 1, expected[i][0], expected[i][1]])
+	c.t = 28.0
+	await frames(3)
+	_check(c.finale_box.modulate.a > 0.95, "the credits end with a last birthday wish")
+	# Enter skips
+	c.t = 5.0
+	_tap("confirm")
+	await frames(3)
+	_release_taps()
+	await frames(3)
+	_check(main.state == "complete_wait" and not main.has_node("Credits") and main.hud.visible, "Enter skips the credits and leads to THE END screen")
+	# left alone it ends by itself
+	main.state = "playing"
+	main._start_credits()
+	for i in 2100:
+		await frames(1)
+		if main.state == "complete_wait":
+			break
+	_check(main.state == "complete_wait" and not main.has_node("Credits"), "left alone, the credits end by themselves")
+	main.state = "playing"
+
+
+func _credits_shots(out: String) -> void:
+	main.load_level(Levels.idx("brewery"))
+	main._start_playing()
+	main.hud.banner.modulate.a = 0.0
+	main.player.respawn(Vector3(0, 0.05, -4))
+	main.player.model.flash = 0.0
+	main.player.celebrate()
+	await frames(30)
+	main._start_credits()
+	var c: CanvasLayer = main.get_node("Credits")
+	for step in [[4.0, "credits_title"], [14.0, "credits_starring"], [18.0, "credits_made"], [22.0, "credits_inspired"], [27.0, "credits_finale"]]:
+		c.t = step[0]
+		await frames(25)
+		_save(out, step[1])
+	c.finish()
+	await frames(10)
+	_save(out, "the_end")
+	main.state = "playing"

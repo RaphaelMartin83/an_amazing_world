@@ -47,6 +47,8 @@ func _ready() -> void:
 
 
 func play(name: String, pitch := 1.0, volume_db := 0.0) -> void:
+	if name == "birthday" and not sounds.has(name):
+		sounds[name] = _birthday()
 	if not sounds.has(name):
 		return
 	var p := voices[_next]
@@ -90,6 +92,51 @@ func _tone(f0: float, f1: float, dur: float, kind: String, vol: float, noise := 
 		var s := lerpf(_wave(kind, phase), randf() * 2.0 - 1.0, noise)
 		var env := (1.0 - t) * minf(1.0, t * 60.0)
 		data.encode_s16(i * 2, int(clampf(s * env * vol, -1.0, 1.0) * 32767.0))
+	return _make_stream(data)
+
+
+# "Happy Birthday to you" in C major, as a bright little chiptune (square lead + soft triangle).
+func _birthday() -> AudioStreamWAV:
+	var C4 := 261.63
+	var D4 := 293.66
+	var E4 := 329.63
+	var F4 := 349.23
+	var G4 := 392.0
+	var A4 := 440.0
+	var Bb4 := 466.16
+	var C5 := 523.25
+	var notes := [
+		[C4, 0.75], [C4, 0.25], [D4, 1.0], [C4, 1.0], [F4, 1.0], [E4, 2.0],
+		[C4, 0.75], [C4, 0.25], [D4, 1.0], [C4, 1.0], [G4, 1.0], [F4, 2.0],
+		[C4, 0.75], [C4, 0.25], [C5, 1.0], [A4, 1.0], [F4, 1.0], [E4, 1.0], [D4, 1.0],
+		[Bb4, 0.75], [Bb4, 0.25], [A4, 1.0], [F4, 1.0], [G4, 1.0], [F4, 2.0, 0.6],
+	]
+	var beat := 60.0 / 126.0
+	var total := 0.0
+	for nt in notes:
+		total += float(nt[1]) * beat
+	var n := int((total + 0.6) * RATE)
+	var data := PackedByteArray()
+	data.resize(n * 2)
+	var at := 0
+	var ph1 := 0.0
+	var ph2 := 0.0
+	for nt in notes:
+		var freq: float = nt[0]
+		var len_s: float = float(nt[1]) * beat
+		var cnt := int(len_s * RATE)
+		for i in cnt:
+			var ts := float(i) / RATE
+			var vib := 1.0 + 0.004 * sin(ts * 38.0)
+			ph1 += freq * vib / RATE
+			ph2 += freq * 0.5 / RATE
+			var env := minf(1.0, ts * 90.0) * (0.78 + 0.22 * (1.0 - float(i) / cnt))
+			if len_s - ts < 0.06:
+				env *= (len_s - ts) / 0.06
+			var s := (_wave("square", ph1) * 0.32 + _wave("tri", ph2) * 0.42) * env
+			if at + i < n:
+				data.encode_s16((at + i) * 2, int(clampf(s * 0.5, -1.0, 1.0) * 32767.0))
+		at += cnt
 	return _make_stream(data)
 
 

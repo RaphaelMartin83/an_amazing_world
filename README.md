@@ -40,6 +40,11 @@ the arena like a log — sidestep, he ends up crashing into the wall). After the
 back with his tip glowing. That is the only opening: **fart right next to the glowing tip** (fart + flame = boom). Each hit
 burns the cigar shorter, so he shrinks and gets faster. Four hits; if you die he keeps his damage.
 
+**The ending:** beating the last boss (and walking into his portal) plays the birthday credits: a huge animated
+"HAPPY BIRTHDAY PALMOUZE" with confetti, beer bottles, fireworks and a "Happy Birthday" tune, then *Starring: Palmouze*,
+*Made by: Love for Palmouze*, *Inspired by: Palmouze*, then the "THE END" screen. Enter skips. (The name comes from
+`game/scripts/friend_config.gd`; the credits text is in `game/scripts/credits.gd`.)
+
 **Boss — The Brewmaster** (a giant angry beer keg with beer-mug fists). He repeats three attacks in the same order, so
 they can be learned: **foam shots** (his mouth glows first; dodge them or pop them with a fart), a **leaping slam**
 (it lands where you were standing and sends a shockwave ring along the floor — jump over it), and a **spinning charge**
