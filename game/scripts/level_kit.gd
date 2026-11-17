@@ -13,6 +13,8 @@ const Crumble = preload("res://scripts/crumble.gd")
 const Gem = preload("res://scripts/gem.gd")
 const Conveyor = preload("res://scripts/conveyor.gd")
 const Wave = preload("res://scripts/wave.gd")
+const Boss = preload("res://scripts/boss.gd")
+const CigarBoss = preload("res://scripts/cigar_boss.gd")
 
 var root: Node3D
 var theme: Dictionary
@@ -23,6 +25,7 @@ var info := {
 	"camera_look": Vector3(0, 1.3, -3.0),
 	"kill_y": -12.0,
 	"boulder": null,
+	"boss": null,
 	"goal": null,
 }
 var _grass: StandardMaterial3D
@@ -32,6 +35,7 @@ var _grass_side: StandardMaterial3D
 var _wood: StandardMaterial3D
 var _ice: StandardMaterial3D
 var _snow: StandardMaterial3D
+var _carpet: StandardMaterial3D
 
 
 func _init(r: Node3D, th: Dictionary) -> void:
@@ -51,6 +55,9 @@ func _init(r: Node3D, th: Dictionary) -> void:
 	_ice.roughness = 0.12
 	_ice.specular_mode = BaseMaterial3D.SPECULAR_SCHLICK_GGX
 	_snow = T.world_tex_mat(T.noise_tex("snow", Color(0.84, 0.91, 0.98), Color(1.0, 1.0, 1.0), 0.04, 128, 8), Color.WHITE, 0.2)
+	_carpet = T.world_tex_mat(T.noise_tex("carpet", Color(0.42, 0.06, 0.09), Color(0.62, 0.14, 0.14), 0.15, 128, 41), Color.WHITE, 0.3)
+	if theme.get("planks", false):
+		_dirt = T.world_tex_mat(T.plank_tex("lounge_wall", theme.dirt_a, theme.dirt_b), Color.WHITE, 0.25)
 	if theme.get("brick", false):
 		_dirt = T.world_tex_mat(T.brick_tex("brick_" + str(theme.name), theme.dirt_a, theme.dirt_b, theme.dirt_a.darkened(0.55)), Color.WHITE, 0.25)
 
@@ -66,6 +73,8 @@ func _top(style: String) -> Material:
 			return _ice
 		"snow":
 			return _snow
+		"carpet":
+			return _carpet
 	return _path
 
 
@@ -366,7 +375,7 @@ func sludgefall(pos: Vector3) -> void:
 
 
 # Brick tunnel around z_a..z_b: side walls, ceiling, ribs, pipes, lamps, end walls.
-func tunnel(z_a: float, z_b: float) -> void:
+func tunnel(z_a: float, z_b: float, pipes := true) -> void:
 	var z_lo := minf(z_a, z_b)
 	var z_hi := maxf(z_a, z_b)
 	var zc := (z_lo + z_hi) * 0.5
@@ -386,15 +395,16 @@ func tunnel(z_a: float, z_b: float) -> void:
 		for side in [-1.0, 1.0]:
 			T.box(root, Vector3(0.9, 14.0, 1.3), Vector3(side * 10.6, 5.0, z), rib_m).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		z += 12.0
-	for side in [-1.0, 1.0]:
-		pipe(Vector3(side * 10.1, 2.4, zc), length, 0.6, Color(0.55, 0.3, 0.2))
-		pipe(Vector3(side * 10.2, 5.6, zc), length, 0.42, Color(0.28, 0.5, 0.5))
-		pipe(Vector3(side * 6.5, 11.9, zc), length, 0.5, Color(0.5, 0.45, 0.3))
+	if pipes:
+		for side in [-1.0, 1.0]:
+			pipe(Vector3(side * 10.1, 2.4, zc), length, 0.6, Color(0.55, 0.3, 0.2))
+			pipe(Vector3(side * 10.2, 5.6, zc), length, 0.42, Color(0.28, 0.5, 0.5))
+			pipe(Vector3(side * 6.5, 11.9, zc), length, 0.5, Color(0.5, 0.45, 0.3))
 	var i := 0
 	z = z_lo + 10.0
 	while z < z_hi:
 		lamp(Vector3(-6.0 if i % 2 == 0 else 6.0, 9.2, z))
-		if i % 3 == 1:
+		if pipes and i % 3 == 1:
 			sludgefall(Vector3(-9.6 if i % 2 == 0 else 9.6, 6.0, z + 6.0))
 		z += 15.0
 		i += 1
@@ -546,3 +556,143 @@ func snowman(pos: Vector3, yaw := 0.0) -> void:
 		var arm := T.cylinder(n, 0.04, 0.04, 1.3, Vector3(sx * 1.0, 2.2, 0), T.mat(Color(0.35, 0.22, 0.14), false), 6)
 		arm.rotation.z = sx * 1.0
 	root.add_child(n)
+
+
+# ------------------------------------------------------------------ boss arena
+
+func boss(pos: Vector3) -> Node3D:
+	var b := Boss.new()
+	b.position = pos
+	root.add_child(b)
+	info.boss = b
+	return b
+
+
+# An invisible wall (so nobody wanders out) dressed up as a row of barrels.
+func fence(z: float, width := 22.0, kind := "barrels") -> void:
+	var body := StaticBody3D.new()
+	body.collision_layer = 1
+	body.collision_mask = 0
+	body.position = Vector3(0, 4.0, z)
+	var cs := CollisionShape3D.new()
+	var shape := BoxShape3D.new()
+	shape.size = Vector3(width, 8.0, 1.2)
+	cs.shape = shape
+	body.add_child(cs)
+	root.add_child(body)
+	if kind == "sofas":
+		var sx := -width * 0.5 + 2.2
+		while sx < width * 0.5 - 1.0:
+			sofa(Vector3(sx, 0.0, z), 0.0)
+			sx += 4.4
+		return
+	var x := -width * 0.5 + 0.8
+	var i := 0
+	while x < width * 0.5:
+		barrel(Vector3(x, 0.0, z), 1.0)
+		if i % 2 == 0:
+			barrel(Vector3(x + 0.8, 1.3, z), 0.9)
+		x += 1.7
+		i += 1
+
+
+func barrel(pos: Vector3, scale := 1.0) -> void:
+	var n := Node3D.new()
+	n.position = pos
+	var wood := T.mat(Color(0.6, 0.38, 0.2), true, 0.7, T.plank_tex("planks", Color(0.50, 0.32, 0.18), Color(0.72, 0.5, 0.3)), 0.04)
+	var gold := T.mat(Color(0.9, 0.7, 0.2), false, 0.3)
+	T.cylinder(n, 0.75 * scale, 0.65 * scale, 0.45 * scale, Vector3(0, 0.22 * scale, 0), wood, 14)
+	T.cylinder(n, 0.75 * scale, 0.75 * scale, 0.45 * scale, Vector3(0, 0.67 * scale, 0), wood, 14)
+	T.cylinder(n, 0.65 * scale, 0.75 * scale, 0.45 * scale, Vector3(0, 1.12 * scale, 0), wood, 14)
+	for hy in [0.3, 1.05]:
+		T.cylinder(n, 0.72 * scale, 0.72 * scale, 0.08 * scale, Vector3(0, hy * scale, 0), gold, 14)
+	root.add_child(n)
+
+
+# A big copper brewing vat (decoration).
+func vat(pos: Vector3, radius: float, height: float) -> void:
+	var n := Node3D.new()
+	n.position = pos
+	var copper := T.mat(Color(0.78, 0.46, 0.26), true, 0.35, null, 0.05)
+	T.cylinder(n, radius, radius, height, Vector3(0, height * 0.5 + 0.8, 0), copper, 20)
+	T.sphere(n, radius, Vector3(0, height + 0.8, 0), copper, Vector3(1.0, 0.7, 1.0))
+	T.cylinder(n, 0.3, 0.3, 2.5, Vector3(0, height + 2.2, 0), copper, 10)
+	for sx in [-1.0, 1.0]:
+		T.cylinder(n, 0.2, 0.2, 1.0, Vector3(sx * radius * 0.7, 0.4, 0), T.mat(Color(0.3, 0.3, 0.33), true), 8)
+	T.cylinder(n, radius * 1.02, radius * 1.02, 0.25, Vector3(0, height * 0.3 + 0.8, 0), T.mat(Color(0.95, 0.75, 0.2), false), 20)
+	var win := T.sphere(n, 0.55, Vector3(0, height * 0.6 + 0.8, -radius + 0.1), T.emissive(Color(1.0, 0.7, 0.25), 2.2), Vector3(1.0, 1.0, 0.4))
+	win.name = "Window"
+	root.add_child(n)
+
+
+# ------------------------------------------------------------------ cigar lounge
+
+func cigar_boss(pos: Vector3) -> Node3D:
+	var b := CigarBoss.new()
+	b.position = pos
+	root.add_child(b)
+	info.boss = b
+	return b
+
+
+func _leather() -> StandardMaterial3D:
+	return T.mat(Color(0.42, 0.18, 0.1), true, 0.45, null, 0.04)
+
+
+func armchair(pos: Vector3, yaw := 0.0) -> void:
+	var n := Node3D.new()
+	n.position = pos
+	n.rotation.y = yaw
+	var m := _leather()
+	T.box(n, Vector3(1.8, 0.55, 1.6), Vector3(0, 0.45, 0), m)
+	T.box(n, Vector3(1.8, 1.4, 0.4), Vector3(0, 1.15, 0.7), m)
+	for sx in [-1.0, 1.0]:
+		T.box(n, Vector3(0.35, 0.9, 1.6), Vector3(sx * 1.0, 0.7, 0), m)
+		T.sphere(n, 0.16, Vector3(sx * 1.0, 0.0, -0.7), T.mat(Color(0.9, 0.7, 0.2), false)).position.y = 0.1
+	root.add_child(n)
+
+
+# A long couch; solid, it makes the south fence of the arena.
+func sofa(pos: Vector3, yaw := 0.0) -> void:
+	var n := Node3D.new()
+	n.position = pos
+	n.rotation.y = yaw
+	var m := _leather()
+	T.box(n, Vector3(4.2, 0.6, 1.6), Vector3(0, 0.5, 0), m)
+	T.box(n, Vector3(4.2, 1.5, 0.45), Vector3(0, 1.25, 0.65), m)
+	for sx in [-1.0, 1.0]:
+		T.box(n, Vector3(0.4, 1.0, 1.6), Vector3(sx * 2.0, 0.8, 0), m)
+	for i in 5:
+		T.sphere(n, 0.1, Vector3(-1.6 + i * 0.8, 1.35, 0.42), T.mat(Color(0.9, 0.7, 0.2), false))
+	root.add_child(n)
+
+
+func ashtray(pos: Vector3, scale := 1.0) -> void:
+	var n := Node3D.new()
+	n.position = pos
+	var glass := T.mat(Color(0.12, 0.13, 0.16), true, 0.15, null, 0.04)
+	T.cylinder(n, 1.6 * scale, 1.2 * scale, 0.5 * scale, Vector3(0, 0.25 * scale, 0), glass, 20)
+	T.cylinder(n, 1.3 * scale, 1.3 * scale, 0.06 * scale, Vector3(0, 0.5 * scale, 0), T.mat(Color(0.55, 0.55, 0.58), false), 20)
+	T.sphere(n, 0.9 * scale, Vector3(0, 0.5 * scale, 0), T.mat(Color(0.72, 0.72, 0.76), true, 0.95), Vector3(1.0, 0.35, 1.0))
+	for i in 3:
+		var a := i * 2.1
+		var butt := T.cylinder(n, 0.12 * scale, 0.12 * scale, 1.3 * scale, Vector3(cos(a) * 0.8 * scale, 0.75 * scale, sin(a) * 0.8 * scale), T.mat(Color(0.45, 0.26, 0.1), false), 8)
+		butt.rotation = Vector3(0.0, a, PI / 2.0 - 0.3)
+	root.add_child(n)
+
+
+# A bar along the far wall, shelves of bottles behind it.
+func bar(z: float) -> void:
+	var wood := T.mat(Color(0.3, 0.15, 0.09), true, 0.5, T.plank_tex("lounge_wall", Color(0.25, 0.12, 0.08), Color(0.4, 0.2, 0.12)), 0.04)
+	T.box(root, Vector3(18.0, 1.3, 1.6), Vector3(0, 0.65, z + 0.6), wood)
+	T.box(root, Vector3(18.4, 0.15, 2.0), Vector3(0, 1.35, z + 0.6), T.mat(Color(0.55, 0.35, 0.18), true, 0.3))
+	for row in 3:
+		T.box(root, Vector3(18.0, 0.15, 0.7), Vector3(0, 3.0 + row * 1.6, z - 0.8), wood)
+		for i in 22:
+			var bx := -8.4 + i * 0.8
+			var col: Color = [Color(0.35, 0.18, 0.05), Color(0.15, 0.4, 0.2), Color(0.8, 0.55, 0.15), Color(0.5, 0.1, 0.12)][(i + row) % 4]
+			var gm := T.mat(col, false, 0.25)
+			T.cylinder(root, 0.17, 0.17, 0.75, Vector3(bx, 3.45 + row * 1.6, z - 0.8), gm, 8)
+			T.cylinder(root, 0.06, 0.1, 0.35, Vector3(bx, 3.98 + row * 1.6, z - 0.8), gm, 8)
+	var mirror := T.box(root, Vector3(14.0, 4.6, 0.1), Vector3(0, 5.0, z - 1.25), T.emissive(Color(0.35, 0.25, 0.15), 0.5))
+	mirror.name = "Mirror"

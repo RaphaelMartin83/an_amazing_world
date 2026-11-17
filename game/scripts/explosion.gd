@@ -4,6 +4,7 @@ extends Node3D
 const T = preload("res://scripts/toon.gd")
 
 var radius := 3.6
+var quiet := false       # small blasts (boss hits) don't flash the screen
 var floor_y := -1000.0   # world height of the floor under the blast (for the ring and the scorch mark)
 
 
@@ -105,8 +106,9 @@ func _ready() -> void:
 	_particles(18, 1.7, Vector3.UP, 55.0, 1.5, 4.5, Vector3(0, 1.0, 0), 0.55, _smoke_mat(), radius * 0.35, false)
 	_particles(16, 1.2, Vector3.UP, 85.0, 5.0, 11.0, Vector3(0, -22, 0), 0.24, T.mat(Color(0.8, 0.55, 0.28), false, 0.8), 0.0, true)
 
-	Game.shake(0.9)
-	Game.screen_flash.emit(Color(1.0, 0.85, 0.5, 0.5))
+	Game.shake(0.25 if quiet else 0.9)
+	if not quiet:
+		Game.screen_flash.emit(Color(1.0, 0.85, 0.5, 0.5))
 	get_tree().create_timer(3.6).timeout.connect(queue_free)
 
 

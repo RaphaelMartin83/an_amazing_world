@@ -3,8 +3,14 @@ extends RefCounted
 
 const Kit = preload("res://scripts/level_kit.gd")
 
-const NAMES := ["1. JUNGLE RUN", "2. BOULDER RUSH", "3. SEWER SURGE", "4. NEON ROOFTOPS", "5. SUNNY SHORES", "6. FROZEN PEAKS"]
-const COUNT := 6
+# Level order. Add new levels here (and in build()); tests and menus look levels up by key via idx().
+const KEYS := ["jungle", "boulder", "cigar", "sewer", "city", "beach", "snow", "brewery"]
+const NAMES := ["1. JUNGLE RUN", "2. BOULDER RUSH", "3. DON HUMO", "4. SEWER SURGE", "5. NEON ROOFTOPS", "6. SUNNY SHORES", "7. FROZEN PEAKS", "8. THE BREWMASTER"]
+const COUNT := 8
+
+
+static func idx(key: String) -> int:
+	return KEYS.find(key)
 
 const THEMES := {
 	"jungle": {
@@ -82,6 +88,36 @@ const THEMES := {
 		"sun_color": Color(0.96, 0.96, 1.0), "sun_energy": 0.95, "sun_rot": Vector3(-42, -30, 0),
 		"ambient": 0.9,
 	},
+	"brewery": {
+		"name": "brewery", "brick": true,
+		"top_a": Color(0.4, 0.26, 0.16), "top_b": Color(0.55, 0.36, 0.22),
+		"path_a": Color(0.5, 0.32, 0.18), "path_b": Color(0.72, 0.5, 0.3),
+		"dirt_a": Color(0.50, 0.26, 0.18), "dirt_b": Color(0.70, 0.40, 0.28),
+		"lip": Color(0.62, 0.45, 0.28),
+		"leaf_a": Color(0.2, 0.4, 0.2), "leaf_b": Color(0.3, 0.5, 0.2),
+		"water": Color(0.55, 0.32, 0.08, 1.0),
+		"mountain": Color(0.3, 0.2, 0.15), "pillar": Color(0.6, 0.45, 0.3),
+		"sky_top": Color(0.16, 0.10, 0.07), "sky_horizon": Color(0.30, 0.18, 0.10),
+		"ground_horizon": Color(0.30, 0.18, 0.10), "ground_bottom": Color(0.14, 0.08, 0.05),
+		"fog": Color(0.20, 0.12, 0.07), "fog_density": 0.006,
+		"sun_color": Color(1.0, 0.8, 0.55), "sun_energy": 0.5, "sun_rot": Vector3(-60, -25, 0),
+		"ambient": 1.15,
+	},
+	"lounge": {
+		"name": "lounge", "planks": true,
+		"top_a": Color(0.4, 0.26, 0.16), "top_b": Color(0.55, 0.36, 0.22),
+		"path_a": Color(0.42, 0.06, 0.09), "path_b": Color(0.62, 0.14, 0.14),
+		"dirt_a": Color(0.20, 0.10, 0.07), "dirt_b": Color(0.36, 0.19, 0.11),
+		"lip": Color(0.80, 0.62, 0.28),
+		"leaf_a": Color(0.2, 0.4, 0.2), "leaf_b": Color(0.3, 0.5, 0.2),
+		"water": Color(0.3, 0.2, 0.1, 1.0),
+		"mountain": Color(0.3, 0.2, 0.15), "pillar": Color(0.6, 0.45, 0.3),
+		"sky_top": Color(0.12, 0.09, 0.08), "sky_horizon": Color(0.26, 0.20, 0.16),
+		"ground_horizon": Color(0.26, 0.20, 0.16), "ground_bottom": Color(0.10, 0.07, 0.06),
+		"fog": Color(0.30, 0.25, 0.21), "fog_density": 0.011,
+		"sun_color": Color(1.0, 0.8, 0.55), "sun_energy": 0.4, "sun_rot": Vector3(-60, -25, 0),
+		"ambient": 1.2,
+	},
 	"ruins": {
 		"name": "ruins",
 		"top_a": Color(0.82, 0.68, 0.42), "top_b": Color(0.95, 0.82, 0.55),
@@ -107,13 +143,17 @@ static func build(index: int, root: Node3D) -> Dictionary:
 		1:
 			return _boulder_rush(root)
 		2:
-			return _sewer_surge(root)
+			return _cigar_lounge(root)
 		3:
-			return _city_run(root)
+			return _sewer_surge(root)
 		4:
+			return _city_run(root)
+		5:
 			return _beach_run(root)
-		_:
+		6:
 			return _snow_run(root)
+		_:
+			return _brewmaster(root)
 
 
 # =============================================================== LEVEL 1
@@ -292,7 +332,7 @@ static func _boulder_rush(root: Node3D) -> Dictionary:
 static func _sewer_surge(root: Node3D) -> Dictionary:
 	var theme: Dictionary = THEMES.sewer
 	var k := Kit.new(root, theme)
-	k.info.title = NAMES[2]
+	k.info.title = NAMES[3]
 	k.info.theme = theme
 	k.info.start = Vector3(0, 0.05, -1)
 	k.info.kill_y = -9.0
@@ -372,7 +412,7 @@ static func _sewer_surge(root: Node3D) -> Dictionary:
 static func _city_run(root: Node3D) -> Dictionary:
 	var theme: Dictionary = THEMES.city
 	var k := Kit.new(root, theme)
-	k.info.title = NAMES[3]
+	k.info.title = NAMES[4]
 	k.info.theme = theme
 	k.info.start = Vector3(0, 0.05, -1)
 	k.info.kill_y = -14.0
@@ -462,7 +502,7 @@ static func _city_run(root: Node3D) -> Dictionary:
 static func _beach_run(root: Node3D) -> Dictionary:
 	var theme: Dictionary = THEMES.beach
 	var k := Kit.new(root, theme)
-	k.info.title = NAMES[4]
+	k.info.title = NAMES[5]
 	k.info.theme = theme
 	k.info.start = Vector3(0, 0.05, -1)
 	k.info.kill_y = -7.0
@@ -549,7 +589,7 @@ static func _beach_run(root: Node3D) -> Dictionary:
 static func _snow_run(root: Node3D) -> Dictionary:
 	var theme: Dictionary = THEMES.snow
 	var k := Kit.new(root, theme)
-	k.info.title = NAMES[5]
+	k.info.title = NAMES[6]
 	k.info.theme = theme
 	k.info.start = Vector3(0, 0.05, -1)
 	k.info.kill_y = -9.0
@@ -625,4 +665,63 @@ static func _snow_run(root: Node3D) -> Dictionary:
 	for i in 7:
 		k.snowman(Vector3((-1.0 if i % 2 == 0 else 1.0) * 10.0, -1.5, -20.0 - i * 32.0), (PI / 2.0) * (1.0 if i % 2 == 0 else -1.0))
 	k.mountains(-110.0)
+	return k.info
+
+
+# =============================================================== LEVEL 7 (boss)
+static func _brewmaster(root: Node3D) -> Dictionary:
+	var theme: Dictionary = THEMES.brewery
+	var k := Kit.new(root, theme)
+	k.info.title = NAMES[7]
+	k.info.theme = theme
+	k.info.start = Vector3(0, 0.05, 6)
+	k.info.kill_y = -10.0
+
+	# the arena: a wooden floor inside a brick brewery hall. A barrel fence closes the south end.
+	k.ground(0, 0, 26, -28, 20, 8.0, "wood")
+	k.tunnel(26.0, -28.0)
+	k.fence(10.5)
+	k.boss(Vector3(0, 0, -14))
+
+	# dressing: copper vats against the far wall, barrels along the sides
+	for x in [-7.0, 0.0, 7.0]:
+		k.vat(Vector3(x, 0.0, -27.0), 1.5, 8.0)
+	for side in [-1.0, 1.0]:
+		for i in 6:
+			k.barrel(Vector3(side * 10.6, 0.0, 4.0 - i * 5.0), 1.0)
+		k.barrel(Vector3(side * 10.6, 1.3, -1.0), 0.9)
+	# a few beers to grab while you wait for your chance
+	k.fruit_line(Vector3(-8.5, 0.7, 7), Vector3(-8.5, 0.7, -6), 6)
+	k.fruit_line(Vector3(8.5, 0.7, 7), Vector3(8.5, 0.7, -6), 6)
+	k.fruit_arc(Vector3(-4, 0.8, 8), Vector3(4, 0.8, 8), 7, 2.4)
+	return k.info
+
+
+# =============================================================== LEVEL 3 (boss: Don Humo)
+static func _cigar_lounge(root: Node3D) -> Dictionary:
+	var theme: Dictionary = THEMES.lounge
+	var k := Kit.new(root, theme)
+	k.info.title = NAMES[2]
+	k.info.theme = theme
+	k.info.start = Vector3(0, 0.05, 6)
+	k.info.kill_y = -10.0
+
+	# a smoky cigar lounge: red carpet, mahogany panelling, a row of sofas closing the south end
+	k.ground(0, 0, 26, -28, 20, 8.0, "carpet")
+	k.tunnel(26.0, -28.0, false)
+	k.fence(10.5, 22.0, "sofas")
+	k.cigar_boss(Vector3(0, 0, -14))
+
+	k.bar(-27.0)
+	for side in [-1.0, 1.0]:
+		for i in 4:
+			k.armchair(Vector3(side * 10.2, 0.0, 3.0 - i * 6.5), side * -PI * 0.5)
+	for x in [-8.5, 8.5]:
+		k.ashtray(Vector3(x, 0.0, -23.5), 1.2)
+	k.ashtray(Vector3(-9.2, 0.0, 8.0), 0.9)
+	k.ashtray(Vector3(9.2, 0.0, 8.0), 0.9)
+	# a few beers to grab while you wait for your chance
+	k.fruit_line(Vector3(-8.5, 0.7, 7), Vector3(-8.5, 0.7, -6), 6)
+	k.fruit_line(Vector3(8.5, 0.7, 7), Vector3(8.5, 0.7, -6), 6)
+	k.fruit_arc(Vector3(-4, 0.8, 8), Vector3(4, 0.8, 8), 7, 2.4)
 	return k.info

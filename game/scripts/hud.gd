@@ -17,6 +17,9 @@ var title_hint: Label
 var info_label: Label
 var fade: ColorRect
 var flash_rect: ColorRect
+var boss_box: VBoxContainer
+var boss_name: Label
+var boss_segments: Array[ColorRect] = []
 var pause_box: Label
 signal level_requested(index: int)
 
@@ -100,6 +103,27 @@ func _ready() -> void:
 	pause_box.text = "PAUSED\n[Esc] resume   [Q] quit\n[1]-[%d] jump to level" % level_count
 	pause_box.visible = false
 
+	boss_box = VBoxContainer.new()
+	root.add_child(boss_box)
+	boss_box.set_anchors_and_offsets_preset(Control.PRESET_CENTER_TOP)
+	boss_box.offset_left = -250
+	boss_box.offset_right = 250
+	boss_box.offset_top = 12
+	boss_box.add_theme_constant_override("separation", 4)
+	boss_box.visible = false
+	boss_name = _label(boss_box, 30, Vector2.ZERO)
+	boss_name.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	boss_name.add_theme_color_override("font_color", Color(1.0, 0.8, 0.3))
+	var segs := HBoxContainer.new()
+	segs.add_theme_constant_override("separation", 8)
+	segs.alignment = BoxContainer.ALIGNMENT_CENTER
+	boss_box.add_child(segs)
+	for i in 5:
+		var seg := ColorRect.new()
+		seg.custom_minimum_size = Vector2(112, 22)
+		segs.add_child(seg)
+		boss_segments.append(seg)
+
 	flash_rect = ColorRect.new()
 	flash_rect.color = Color(1, 1, 1, 0)
 	flash_rect.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -114,6 +138,8 @@ func _ready() -> void:
 
 	Game.changed.connect(refresh)
 	Game.screen_flash.connect(_on_flash)
+	Game.boss_health.connect(show_boss)
+	Game.boss_hide.connect(func(): boss_box.visible = false)
 	refresh()
 
 
@@ -151,6 +177,14 @@ func _process(delta: float) -> void:
 	if banner_t > 0.0:
 		banner_t -= delta
 		banner.modulate.a = clampf(banner_t * 2.0, 0.0, 1.0)
+
+
+func show_boss(current: int, maximum: int, boss_label: String) -> void:
+	boss_box.visible = true
+	boss_name.text = boss_label
+	for i in boss_segments.size():
+		boss_segments[i].visible = i < maximum
+		boss_segments[i].color = Color(0.95, 0.3, 0.12) if i < current else Color(0.2, 0.09, 0.08)
 
 
 func _on_flash(color: Color) -> void:

@@ -17,9 +17,9 @@ Everything (engine, export templates, tools) lives in a Docker image; nothing is
 | Body slam (slide button in mid-air) | C / Ctrl | B |
 | Pause / restart level | Esc / R | Start / Back |
 
-**Jumping to a level** (handy for trying new levels): pick it on the title screen (A/D or arrows, or press `1`-`6`),
-press `1`-`6` in the pause menu (Esc) to restart the run at that level, or start directly in one from the command line:
-`AnAmazingWorld.exe -- --level=3` (1 to 6) (Linux: `./AnAmazingWorld.x86_64 -- --level=3`).
+**Jumping to a level** (handy for trying new levels): pick it on the title screen (A/D or arrows, or press `1`-`8`),
+press `1`-`8` in the pause menu (Esc) to restart the run at that level, or start directly in one from the command line:
+`AnAmazingWorld.exe -- --level=3` (1 to 8) (Linux: `./AnAmazingWorld.x86_64 -- --level=3`).
 
 **Crates:** wooden (smash for a beer) · `^` bounce (jump on it up to 5 times) · `C` checkpoint ·
 `M` shield (survives one hit) · friend's face = extra life · grey iron (indestructible, stand on it) ·
@@ -27,10 +27,25 @@ press `1`-`6` in the pause menu (Esc) to restart the run at that level, or start
 **Gems:** every bounce crate has a gem floating above it — hold jump when you land on the crate to bounce high enough to grab it (+10 beers).
 **Beers:** small bottles to collect. 100 = extra life... and Palmouze pukes (a second of retching with a green face, a spray and a puddle — purely cosmetic: he keeps full control the whole time). **Enemies:** crabs can be stomped or spun; purple spiky ones only by spinning/sliding.
 
-Levels: 1 *Jungle Run* (gaps, moving platforms, spinning toys) · 2 *Boulder Rush* (outrun the boulder; camera in front) · 3 *Sewer Surge* (brick tunnel over toxic sludge: slimes, crumbling grates that drop ~0.5 s after you land, moving platforms, spinners) ·
-4 *Neon Rooftops* (sunset city: a conveyor belt that carries you forward, faster, hovering drones, scaffolding) ·
-5 *Sunny Shores* (beach: tidal waves — foam warns you first — rotting pier planks, rafts, crabs, urchins) ·
-6 *Frozen Peaks* (snow: slippery ice, cracking ice, ice floes, penguins, falling snow).
+Levels: 1 *Jungle Run* (gaps, moving platforms, spinning toys) · 2 *Boulder Rush* (outrun the boulder; camera in front) · 3 *Don Humo* (boss fight: a giant cigar, see below) · 4 *Sewer Surge* (brick tunnel over toxic sludge: slimes, crumbling grates that drop ~0.5 s after you land, moving platforms, spinners) ·
+5 *Neon Rooftops* (sunset city: a conveyor belt that carries you forward, faster, hovering drones, scaffolding) ·
+6 *Sunny Shores* (beach: tidal waves — foam warns you first — rotting pier planks, rafts, crabs, urchins) ·
+7 *Frozen Peaks* (snow: slippery ice, cracking ice, ice floes, penguins, falling snow) ·
+8 *The Brewmaster* (boss fight, see below).
+
+**Boss — Don Humo** (level 3, a giant lit cigar in a smoky lounge). Attacks, always in this order: **ember rain** (red
+circles on the floor warn where burning embers will land; the fire patches stay for a few seconds — jump or run), a **flame
+sweep** (he spins breathing a wall of fire along the floor — jump it) and a **rolling smash** (he lies down and rolls across
+the arena like a log — sidestep, he ends up crashing into the wall). After the flame sweep he **overheats**: he slumps on his
+back with his tip glowing. That is the only opening: **fart right next to the glowing tip** (fart + flame = boom). Each hit
+burns the cigar shorter, so he shrinks and gets faster. Four hits; if you die he keeps his damage.
+
+**Boss — The Brewmaster** (a giant angry beer keg with beer-mug fists). He repeats three attacks in the same order, so
+they can be learned: **foam shots** (his mouth glows first; dodge them or pop them with a fart), a **leaping slam**
+(it lands where you were standing and sends a shockwave ring along the floor — jump over it), and a **spinning charge**
+at you that ends against the wall. After the charge he is **dizzy** (stars over his head): that is the only time he can
+be hurt — fart him or stomp his foam crown. Three hits; every hit makes him faster. If you die the fight resumes with his
+remaining health. Beating him showers you with beers and opens the exit portal.
 
 ## Tweak the hero (Palmouze)
 

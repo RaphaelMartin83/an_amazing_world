@@ -6,6 +6,8 @@ signal message(text: String, seconds: float)
 signal level_completed
 signal screen_flash(color: Color)
 signal puke
+signal boss_health(current: int, maximum: int, boss_name: String)
+signal boss_hide
 
 const START_LIVES := 5
 const FRUIT_FOR_LIFE := 100
@@ -99,7 +101,10 @@ func hit_area(center: Vector3, radius: float, how: String, source: Node3D) -> in
 				continue
 			var d: Vector3 = node.global_position - center
 			var planar := Vector2(d.x, d.z).length()
-			if planar <= radius and absf(d.y) <= 1.9:
+			var extra := 0.0
+			if "hit_extra" in node:
+				extra = node.hit_extra      # big targets (the boss) can be reached from further away
+			if planar <= radius + extra and absf(d.y) <= 1.9:
 				node.hit(source, how)
 				n += 1
 	return n

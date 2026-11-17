@@ -1,4 +1,6 @@
 extends Node
+
+const Levels = preload("res://scripts/levels.gd")
 # Developer harness (not used in normal play).
 #   --selftest : mechanics checks + a scripted bot that plays every level, prints a report, exits non-zero on failure
 #   --shots    : saves screenshots (needs a renderer, e.g. xvfb + software Vulkan) to res://../build/shots
@@ -90,8 +92,8 @@ func _release_all() -> void:
 func _selftest() -> void:
 	print("== level select")
 	main._show_title()
-	main._select_level(2)
-	_check(main.level_index == 2 and main.state == "title", "title screen: picking 3 loads the sewer")
+	main._select_level(Levels.idx("sewer"))
+	_check(main.level_index == Levels.idx("sewer") and main.state == "title", "title screen: picking the sewer loads it")
 	main._select_level(main.COUNT_FOR_TESTS - 1)
 	main._select_level(main.selected_level + 1)
 	_check(main.level_index == 0, "title screen: next level after the last wraps around to 1")
@@ -237,7 +239,7 @@ func _selftest() -> void:
 	_check(puddles >= 1, "a puddle is left on the floor")
 
 	print("== new mechanics")
-	main.load_level(3)
+	main.load_level(Levels.idx("city"))
 	main._start_playing()
 	p = main.player
 	await frames(30)
@@ -262,7 +264,7 @@ func _selftest() -> void:
 	_hold("move_forward", 0.0)
 	var on_ground := cz0 - p.global_position.z
 	_check(on_belt > on_ground + 2.0, "running with the belt is faster (%.1f m vs %.1f m on plain ground)" % [on_belt, on_ground])
-	main.load_level(5)
+	main.load_level(Levels.idx("snow"))
 	main._start_playing()
 	p = main.player
 	await frames(30)
@@ -281,7 +283,7 @@ func _selftest() -> void:
 	await frames(8)
 	var snow_speed := Vector2(p.velocity.x, p.velocity.z).length()
 	_check(ice_speed > 4.0 and snow_speed < 1.0, "ice is slippery (still moving at %.1f m/s vs %.1f on snow)" % [ice_speed, snow_speed])
-	main.load_level(4)
+	main.load_level(Levels.idx("beach"))
 	main._start_playing()
 	p = main.player
 	await frames(30)
@@ -292,7 +294,7 @@ func _selftest() -> void:
 	wv.t = 2.4 + 1.0 + 0.35 + 0.1     # mid-surge
 	await frames(6)
 	_check(p.dead, "a tidal wave at full height hurts the hero")
-	main.load_level(4)
+	main.load_level(Levels.idx("beach"))
 	main._start_playing()
 	p = main.player
 	await frames(30)
@@ -304,18 +306,24 @@ func _selftest() -> void:
 	await frames(20)
 	_check(not p.dead, "the same spot is safe while the water is calm")
 
+	print("== boss: the Brewmaster")
+	await _boss_tests()
+
+	print("== boss: Don Humo (the cigar)")
+	await _cigar_tests()
+
 	print("== bot plays level 1 (Jungle Run)")
 	await _play(0, 150.0)
 	print("== bot plays level 2 (Boulder Rush)")
 	await _play(1, 150.0)
-	print("== bot plays level 3 (Sewer Surge)")
-	await _play(2, 150.0)
-	print("== bot plays level 4 (Neon Rooftops)")
-	await _play(3, 200.0)
-	print("== bot plays level 5 (Sunny Shores)")
-	await _play(4, 200.0)
-	print("== bot plays level 6 (Frozen Peaks)")
-	await _play(5, 200.0)
+	print("== bot plays the sewer")
+	await _play(Levels.idx("sewer"), 150.0)
+	print("== bot plays the city")
+	await _play(Levels.idx("city"), 200.0)
+	print("== bot plays the beach")
+	await _play(Levels.idx("beach"), 200.0)
+	print("== bot plays the snow level")
+	await _play(Levels.idx("snow"), 200.0)
 	print("== result: %s (%d failures)" % ["OK" if failures == 0 else "FAILED", failures])
 
 
@@ -343,7 +351,7 @@ func _play(idx: int, timeout_s: float) -> void:
 	_release_all()
 	var done: bool = main.state == "complete" or main.state == "complete_wait"
 	print("  finished=%s  time=%.1fs  deaths=%d %s  beers=%d  crates=%d/%d" % [str(done), t, deaths, str(death_log), Game.fruit, Game.crates_broken, Game.crates_total])
-	_check(done, "level %d is completable by the bot" % (idx + 1))
+	_check(done, "%s is completable by the bot" % Levels.NAMES[idx])
 	await frames(5)
 	if main.state != "complete_wait" and main.state != "complete":
 		return
@@ -462,33 +470,35 @@ func _shots() -> void:
 		[1, "L2_start", Vector3(0, 0.05, -92), 1],
 		[1, "L2_mid", Vector3(0, 0.05, -30), 1],
 		[1, "L2_causeway", Vector3(0, 0.05, 28), 1],
-		[2, "L3_start", Vector3(0, 0.05, -1), 2],
-		[2, "L3_crumble", Vector3(0, 0.05, -58), 2],
-		[2, "L3_toys", Vector3(0, 0.05, -95), 2],
-		[2, "L3_movers", Vector3(0, 0.05, -118), 2],
-		[2, "L3_pump", Vector3(0, 0.05, -152), 2],
-		[3, "L4_start", Vector3(0, 0.05, -1), 3],
-		[3, "L4_conveyor", Vector3(0, 0.05, -47), 3],
-		[3, "L4_stairs", Vector3(0, 0.05, -90), 3],
-		[3, "L4_movers", Vector3(0, 2.65, -118), 3],
-		[3, "L4_garden", Vector3(0, 2.65, -156), 3],
-		[3, "L4_scaffold", Vector3(0, 2.65, -186), 3],
-		[4, "L5_start", Vector3(0, 0.05, -1), 4],
-		[4, "L5_boardwalk", Vector3(0, 0.05, -46), 4],
-		[4, "L5_rafts", Vector3(0, 0.05, -90), 4],
-		[4, "L5_wave", Vector3(0, 0.05, -122), 4],
-		[4, "L5_pier", Vector3(0, 0.05, -154), 4],
-		[5, "L6_start", Vector3(0, 0.05, -1), 5],
-		[5, "L6_ice", Vector3(0, 0.05, -16), 5],
-		[5, "L6_floes", Vector3(0, 0.05, -42), 5],
-		[5, "L6_rink", Vector3(0, 0.05, -96), 5],
-		[5, "L6_climb", Vector3(0, 1.35, -142), 5],
-		[5, "L6_summit", Vector3(0, 3.95, -180), 5],
+		[Levels.idx("sewer"), "L3_start", Vector3(0, 0.05, -1), 2],
+		[Levels.idx("sewer"), "L3_crumble", Vector3(0, 0.05, -58), 2],
+		[Levels.idx("sewer"), "L3_toys", Vector3(0, 0.05, -95), 2],
+		[Levels.idx("sewer"), "L3_movers", Vector3(0, 0.05, -118), 2],
+		[Levels.idx("sewer"), "L3_pump", Vector3(0, 0.05, -152), 2],
+		[Levels.idx("city"), "L4_start", Vector3(0, 0.05, -1), 3],
+		[Levels.idx("city"), "L4_conveyor", Vector3(0, 0.05, -47), 3],
+		[Levels.idx("city"), "L4_stairs", Vector3(0, 0.05, -90), 3],
+		[Levels.idx("city"), "L4_movers", Vector3(0, 2.65, -118), 3],
+		[Levels.idx("city"), "L4_garden", Vector3(0, 2.65, -156), 3],
+		[Levels.idx("city"), "L4_scaffold", Vector3(0, 2.65, -186), 3],
+		[Levels.idx("beach"), "L5_start", Vector3(0, 0.05, -1), 4],
+		[Levels.idx("beach"), "L5_boardwalk", Vector3(0, 0.05, -46), 4],
+		[Levels.idx("beach"), "L5_rafts", Vector3(0, 0.05, -90), 4],
+		[Levels.idx("beach"), "L5_wave", Vector3(0, 0.05, -122), 4],
+		[Levels.idx("beach"), "L5_pier", Vector3(0, 0.05, -154), 4],
+		[Levels.idx("snow"), "L6_start", Vector3(0, 0.05, -1), 5],
+		[Levels.idx("snow"), "L6_ice", Vector3(0, 0.05, -16), 5],
+		[Levels.idx("snow"), "L6_floes", Vector3(0, 0.05, -42), 5],
+		[Levels.idx("snow"), "L6_rink", Vector3(0, 0.05, -96), 5],
+		[Levels.idx("snow"), "L6_climb", Vector3(0, 1.35, -142), 5],
+		[Levels.idx("snow"), "L6_summit", Vector3(0, 3.95, -180), 5],
 	]
 	main._select_level(1)
 	await frames(30)
 	_save(out, "title")
 	await _belt_motion(out)
+	await _boss_shots(out)
+	await _cigar_shots(out)
 	var cur := -1
 	for s in spots:
 		if cur != s[0]:
@@ -653,7 +663,7 @@ func _save(dir: String, name: String) -> void:
 # Measures which way the conveyor's chevrons move on screen (camera straight above, screen-up = -Z) and
 # compares it with the direction the belt really pushes.
 func _belt_motion(out: String) -> void:
-	main.load_level(3)
+	main.load_level(Levels.idx("city"))
 	main._start_playing()
 	main.hud.hide_screen()
 	main.hud.visible = false
@@ -708,3 +718,428 @@ func _belt_motion(out: String) -> void:
 	_check(absf(absf(float(best)) - expected_px) < 10.0, "conveyor: the chevrons scroll at the belt's speed")
 	cam.queue_free()
 	main.hud.visible = true
+
+
+# ------------------------------------------------------------------ boss
+
+func _count_goals() -> int:
+	var n := 0
+	for c in main.level_root.get_children():
+		if c.get_script() == preload("res://scripts/goal.gd"):
+			n += 1
+	return n
+
+
+func _boss_tests() -> void:
+	var Foam := preload("res://scripts/foam_ball.gd")
+	main.load_level(Levels.idx("brewery"))
+	main._start_playing()
+	var p: CharacterBody3D = main.player
+	var boss: Node3D = main.info.boss
+	await frames(20)
+	_check(boss.state == "intro" and boss.hp == 3, "boss wakes up when the fight starts (3 hits to go)")
+	await frames(150)
+	_check(boss.state != "intro" and boss.state != "wait", "boss finishes his intro and starts fighting")
+
+	# --- he only takes damage while dizzy
+	boss._set_state("wait")
+	boss.position = Vector3(0, 0, -14)
+	p.respawn(Vector3(0, 0.05, -10.7))
+	p.invuln = 1000.0
+	await frames(10)
+	_tap("spin")
+	await frames(3)
+	_release_taps()
+	await frames(10)
+	_check(boss.hp == 3, "a fart does nothing to a boss who isn't dizzy")
+	await frames(40)                 # let that fart finish before he becomes dizzy
+	boss._set_state("dizzy")
+	await frames(40)
+	p.respawn(Vector3(0, 0.05, -10.7))
+	await frames(10)
+	_tap("spin")
+	await frames(3)
+	_release_taps()
+	await frames(5)
+	_check(boss.hp == 2 and boss.state == "hit", "a fart hurts a dizzy boss (reaching him from ~3 m)")
+	await frames(90)
+	_check(boss.state == "walk", "after a hit he recovers and carries on (state=%s t=%.2f hp=%d)" % [boss.state, boss.t, boss.hp])
+
+	# --- stomping the foam crown while dizzy
+	boss._set_state("dizzy")
+	boss.position = Vector3(0, 0, -14)
+	p.respawn(Vector3(0, boss.HEIGHT + 2.5, -14.0))
+	p.invuln = 1000.0
+	await frames(40)
+	_check(boss.hp == 1, "stomping a dizzy boss's head hurts him")
+
+	# --- foam balls
+	boss._set_state("wait")
+	Game.set_mask(true)
+	p.respawn(Vector3(0, 0.05, 2.0))
+	p.invuln = 0.0
+	var ball := Foam.new()
+	main.level_root.add_child(ball)
+	ball.global_position = p.global_position + Vector3(0, 0.9, 0)
+	await frames(4)
+	_check(not Game.has_mask and p.invuln > 0.0, "a foam ball hurts the hero (here it just costs his shield)")
+	p.invuln = 1000.0
+	var ball2 := Foam.new()
+	main.level_root.add_child(ball2)
+	ball2.global_position = p.global_position + Vector3(0.0, 0.9, -1.2)
+	await frames(2)
+	_tap("spin")
+	await frames(3)
+	_release_taps()
+	await frames(3)
+	_check(not is_instance_valid(ball2) or ball2.done, "a fart pops a foam ball")
+
+	# --- the slam's shockwave: hurts on the ground, harmless if you jump over it
+	Game.set_mask(true)
+	p.respawn(Vector3(3.2, 0.05, -14.0))
+	p.invuln = 0.0
+	boss.ring_origin = Vector3(0, 0, -14)
+	boss.ring_r = 3.0
+	await frames(3)
+	_check(not Game.has_mask, "the shockwave ring hurts a hero standing on the ground")
+	Game.set_mask(true)
+	p.respawn(Vector3(3.2, 3.5, -14.0))
+	p.invuln = 0.0
+	boss.ring_r = 3.0
+	await frames(40)
+	_check(Game.has_mask, "...but he can jump over it")
+	p.invuln = 1000.0
+
+	# --- a charge ends in a crash and a dizzy boss
+	boss.hp = 3
+	boss.position = Vector3(0, 0, -14)
+	p.respawn(Vector3(0, 0.05, 5.0))
+	boss._set_state("charge")
+	var dizzy_seen := false
+	for i in 330:
+		await frames(1)
+		if boss.state == "dizzy":
+			dizzy_seen = true
+			break
+	_check(dizzy_seen, "after a charge into the wall he is left dizzy")
+
+	# --- the soak: left alone for 40 s he uses every attack, and nothing breaks
+	main.load_level(Levels.idx("brewery"))
+	main._start_playing()
+	p = main.player
+	boss = main.info.boss
+	p.invuln = 100000.0
+	var seen_states := {}
+	for i in 2400:
+		await frames(1)
+		seen_states[boss.state] = true
+	_check(seen_states.has("foam") and seen_states.has("slam") and seen_states.has("charge") and seen_states.has("dizzy"),
+		"left alone he cycles through foam, slam, charge and dizzy (%s)" % str(seen_states.keys()))
+
+	# --- dying: the hero respawns, the fight resumes with the boss's remaining health
+	boss.hp = 2
+	boss._set_state("foam")
+	main._respawn()
+	_check(boss.state == "walk" and boss.hp == 2, "after the hero dies the boss keeps his damage")
+
+	# --- killing him
+	boss.hp = 1
+	boss.position = Vector3(0, 0, -14)
+	boss._set_state("dizzy")
+	p.respawn(Vector3(0, 0.05, -10.7))
+	p.invuln = 1000.0
+	await frames(10)
+	_tap("spin")
+	await frames(3)
+	_release_taps()
+	await frames(5)
+	_check(boss.state == "dead", "the last hit finishes him")
+	await frames(3 * 60 + 30)
+	_check(not is_instance_valid(boss), "the dead boss blows up and disappears")
+	_check(_count_goals() == 1, "the exit portal appears")
+	_check(get_tree().get_nodes_in_group("fruit").size() >= 20, "a shower of beers falls")
+	p.respawn(Vector3(0, 0.05, -13.6))
+	await frames(40)
+	_check(main.state == "complete" or main.state == "complete_wait", "walking into the portal completes the level")
+	main.state = "playing"
+
+
+func _boss_shots(out: String) -> void:
+	main.load_level(Levels.idx("brewery"))
+	main._start_playing()
+	main.hud.banner.modulate.a = 0.0
+	var p: CharacterBody3D = main.player
+	var boss: Node3D = main.info.boss
+	p.respawn(Vector3(0, 0.05, -2))
+	p.invuln = 100000.0
+	p.model.flash = 0.0
+	main.cam_rig.snap()
+	boss.position = Vector3(0, 0, -15)
+	await frames(75)
+	_save(out, "boss_intro")
+	await frames(110)
+	boss.position = Vector3(0, 0, -15)
+	boss._set_state("foam")
+	await frames(125)
+	_save(out, "boss_foam")
+	boss.position = Vector3(0, 0, -15)
+	boss._set_state("slam")
+	await frames(70)
+	_save(out, "boss_slam_air")
+	await frames(40)
+	_save(out, "boss_ring")
+	await frames(60)
+	boss.position = Vector3(0, 0, -15)
+	boss._set_state("charge")
+	await frames(85)
+	_save(out, "boss_charge")
+	boss.position = Vector3(0, 0, -14)
+	boss._set_state("dizzy")
+	await frames(45)
+	_save(out, "boss_dizzy")
+	boss.position = Vector3(0, 0, -15)
+	boss.hp = 1
+	boss.take_hit(null)
+	await frames(80)
+	_save(out, "boss_death")
+	await frames(130)
+	_save(out, "boss_goal")
+
+
+# ------------------------------------------------------------------ Don Humo (the cigar boss)
+
+func _fart() -> void:
+	_tap("spin")
+	await frames(3)
+	_release_taps()
+	await frames(5)
+
+
+func _cigar_tests() -> void:
+	var Ember := preload("res://scripts/ember_strike.gd")
+	main.load_level(Levels.idx("cigar"))
+	main._start_playing()
+	var p: CharacterBody3D = main.player
+	var boss: Node3D = main.info.boss
+	await frames(20)
+	_check(boss.state == "intro" and boss.hp == 4, "Don Humo wakes up when the fight starts (4 hits to go)")
+	await frames(150)
+	_check(boss.state != "intro" and boss.state != "wait", "he finishes his intro and starts fighting")
+
+	# --- only an overheated Don Humo can be hurt, and only by a fart next to his glowing tip
+	boss._set_state("wait")
+	boss.position = Vector3(0, 0, -14)
+	p.respawn(Vector3(0, 0.05, -11.0))
+	p.invuln = 1000.0
+	await frames(10)
+	await _fart()
+	_check(boss.hp == 4, "a fart does nothing to a cigar who isn't overheated")
+	await frames(40)
+	boss._set_state("exposed")
+	await frames(70)
+	var tip: Vector3 = boss.tip_pos()
+	_check(tip.distance_to(boss.position) > 3.0 and Vector2(tip.x, tip.z).length() < 12.0, "overheated: he is on his back with the tip inside the arena")
+	p.respawn(Vector3(0, 0.05, 6.0))
+	await frames(10)
+	await _fart()
+	_check(boss.hp == 4, "a fart far away from his tip does nothing")
+	await frames(40)
+	p.respawn(Vector3(tip.x, 0.05, tip.z + 1.2))
+	await frames(10)
+	await _fart()
+	_check(boss.hp == 3 and boss.state == "hit", "a fart next to the glowing tip ignites it and hurts him")
+	await frames(110)
+	_check(boss.state == "walk", "after the explosion he gets back up and carries on")
+
+	# --- ember rain: a burning patch hurts on the ground, not in the air
+	boss._set_state("wait")
+	Game.set_mask(true)
+	p.respawn(Vector3(-5.0, 0.05, 2.0))
+	p.invuln = 0.0
+	var e := Ember.new()
+	main.level_root.add_child(e)
+	e.global_position = Vector3(-5.0, 0.0, 2.0)
+	for i in 120:
+		await frames(1)
+		if e.state == "burn" or not is_instance_valid(e):
+			break
+	await frames(3)
+	_check(not Game.has_mask, "an ember landing on the hero hurts him")
+	var e2 := Ember.new()
+	main.level_root.add_child(e2)
+	e2.global_position = Vector3(5.0, 0.0, 2.0)
+	for i in 120:
+		await frames(1)
+		if e2.state == "burn":
+			break
+	Game.set_mask(true)
+	p.respawn(Vector3(5.0, 3.2, 2.0))
+	p.invuln = 0.0
+	await frames(12)
+	_check(Game.has_mask, "he can jump over a burning patch")
+	p.invuln = 1000.0
+	await frames(60)
+	p.respawn(Vector3(5.0, 0.05, 2.0))
+	p.invuln = 0.0
+	await frames(4)
+	_check(not Game.has_mask, "...but standing in it burns")
+	p.invuln = 1000.0
+
+	# --- the flame sweep: a wall of fire along the floor
+	boss.position = Vector3(0, 0, -14)
+	boss._set_state("sweep")
+	boss.step = 1
+	boss.t = 0.0
+	boss.beam.visible = true
+	boss.yaw = 0.0
+	Game.set_mask(true)
+	p.respawn(Vector3(0.0, 0.05, -19.0))
+	p.invuln = 0.0
+	await frames(3)
+	_check(not Game.has_mask, "the flame wall hurts a hero standing in it")
+	Game.set_mask(true)
+	boss.yaw = 0.0
+	p.respawn(Vector3(0.0, 3.2, -19.0))
+	p.invuln = 0.0
+	await frames(6)
+	_check(Game.has_mask, "he can jump over the flame wall")
+	p.invuln = 1000.0
+
+	# --- the rolling smash
+	boss.position = Vector3(0, 0, -14)
+	boss._set_state("roll")
+	boss.step = 1
+	boss.t = 0.0
+	boss.dash_dir = Vector3(0, 0, 1)
+	boss.fall_dir = boss.dash_dir.rotated(Vector3.UP, PI / 2.0)
+	boss.lay = 1.0
+	boss.lay_target = 1.0
+	Game.set_mask(true)
+	p.respawn(Vector3(0.0, 0.05, -12.0))
+	p.invuln = 0.0
+	await frames(3)
+	_check(not Game.has_mask, "being run over by the rolling cigar hurts")
+	boss.position = Vector3(0, 0, -14)
+	p.respawn(Vector3(0.0, 0.05, 5.0))
+	p.invuln = 1000.0          # (respawn() resets the protection to 1.6 s)
+	boss._set_state("roll")
+	var smashed := false
+	for i in 420:
+		await frames(1)
+		if boss.step == 2:
+			smashed = true
+			break
+	_check(smashed, "the roll ends in a smash into the wall")
+
+	# --- after the sweep he is overheated (that's the opening)
+	boss.position = Vector3(0, 0, -14)
+	boss._set_state("sweep")
+	var overheated := false
+	for i in 600:
+		await frames(1)
+		if boss.state == "exposed":
+			overheated = true
+			break
+	_check(overheated, "after the flame sweep he overheats and is exposed")
+
+	# --- the soak: left alone he uses every attack, in order, and nothing breaks
+	main.load_level(Levels.idx("cigar"))
+	main._start_playing()
+	p = main.player
+	boss = main.info.boss
+	p.invuln = 100000.0
+	var seen_states := {}
+	for i in 3600:
+		await frames(1)
+		seen_states[boss.state] = true
+	_check(seen_states.has("rain") and seen_states.has("sweep") and seen_states.has("exposed") and seen_states.has("roll"),
+		"left alone he cycles through rain, sweep, overheat and roll (%s)" % str(seen_states.keys()))
+
+	boss.hp = 3
+	boss._set_state("rain")
+	main._respawn()
+	_check(boss.state == "walk" and boss.hp == 3, "after the hero dies the cigar keeps his damage")
+
+	# --- burning him out
+	boss.hp = 1
+	boss.position = Vector3(0, 0, -14)
+	boss._set_state("exposed")
+	await frames(70)
+	tip = boss.tip_pos()
+	p.respawn(Vector3(tip.x, 0.05, tip.z + 1.2))
+	p.invuln = 1000.0
+	await frames(10)
+	await _fart()
+	_check(boss.state == "dead", "the last explosion burns him out")
+	await frames(3 * 60 + 30)
+	_check(not is_instance_valid(boss), "the cigar goes up and disappears")
+	_check(_count_goals() == 1, "the exit portal appears")
+	_check(get_tree().get_nodes_in_group("fruit").size() >= 20, "a shower of beers falls")
+	p.respawn(Vector3(0, 0.05, -13.6))
+	await frames(40)
+	_check(main.state == "complete" or main.state == "complete_wait", "walking into the portal completes the level")
+	main.state = "playing"
+
+
+func _cigar_shots(out: String) -> void:
+	main.load_level(Levels.idx("cigar"))
+	main._start_playing()
+	main.hud.banner.modulate.a = 0.0
+	var p: CharacterBody3D = main.player
+	var boss: Node3D = main.info.boss
+	p.respawn(Vector3(0, 0.05, -2))
+	p.invuln = 100000.0
+	p.model.flash = 0.0
+	main.cam_rig.snap()
+	boss.position = Vector3(0, 0, -15)
+	await frames(80)
+	_save(out, "cigar_intro")
+	await frames(110)
+	boss.position = Vector3(0, 0, -15)
+	boss._set_state("rain")
+	await frames(95)
+	_save(out, "cigar_rain_warn")
+	await frames(60)
+	_save(out, "cigar_rain_fire")
+	for h in get_tree().get_nodes_in_group("hazard"):
+		h.queue_free()
+	await frames(10)
+	boss.position = Vector3(0, 0, -15)
+	boss._set_state("sweep")
+	await frames(115)
+	_save(out, "cigar_sweep")
+	for i in 600:
+		await frames(1)
+		if boss.state == "exposed":
+			break
+	await frames(70)
+	_save(out, "cigar_exposed")
+	var tip: Vector3 = boss.tip_pos()
+	p.respawn(Vector3(tip.x, 0.05, tip.z + 1.6))
+	p.model.flash = 0.0
+	await frames(8)
+	_tap("spin")
+	await frames(10)
+	_release_taps()
+	_save(out, "cigar_ignite")
+	await frames(120)
+	boss.position = Vector3(0, 0, -15)
+	p.respawn(Vector3(0, 0.05, -2))
+	p.model.flash = 0.0
+	boss._set_state("roll")
+	await frames(100)
+	_save(out, "cigar_roll")
+	await frames(120)
+	boss.hp = 1
+	boss.position = Vector3(0, 0, -15)
+	boss._set_state("exposed")
+	await frames(70)
+	tip = boss.tip_pos()
+	p.respawn(Vector3(tip.x, 0.05, tip.z + 1.6))
+	await frames(8)
+	_tap("spin")
+	await frames(60)
+	_release_taps()
+	_save(out, "cigar_death")
+	await frames(140)
+	_save(out, "cigar_goal")

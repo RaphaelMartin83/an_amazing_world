@@ -113,6 +113,7 @@ func load_level(idx: int) -> void:
 	if level_root:
 		remove_child(level_root)
 		level_root.queue_free()
+	Game.boss_hide.emit()
 	level_root = Node3D.new()
 	level_root.name = "Level"
 	add_child(level_root)
@@ -252,6 +253,8 @@ func _start_playing() -> void:
 	state = "playing"
 	player.controls_enabled = true
 	hud.show_banner(str(info.title))
+	if info.get("boss") != null:
+		info.boss.activate()
 
 
 func _on_player_died() -> void:
@@ -282,6 +285,8 @@ func _respawn() -> void:
 	cam_rig.snap()
 	if boulder:
 		boulder.reset_to(pos.z - 22.0)
+	if info.get("boss") != null and is_instance_valid(info.boss):
+		info.boss.reset_fight()
 
 
 func _restart_level() -> void:

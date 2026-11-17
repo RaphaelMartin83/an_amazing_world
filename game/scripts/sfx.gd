@@ -38,6 +38,10 @@ func _ready() -> void:
 	sounds["hurt"] = _tone(600, 100, 0.45, "saw", 0.3, 0.2)
 	sounds["die"] = _arp([523, 440, 349, 262, 196], 0.12, "square", 0.25)
 	sounds["win"] = _arp([523, 659, 784, 1047, 784, 1047, 1319], 0.11, "square", 0.22)
+	sounds["roar"] = _roar()
+	sounds["foam"] = _tone(520, 180, 0.2, "saw", 0.28, 0.85)
+	sounds["boss_hit"] = _tone(180, 50, 0.35, "sine", 0.6, 0.15)
+	sounds["whoosh"] = _tone(240, 70, 0.55, "saw", 0.3, 0.95)
 	sounds["rumble"] = _tone(60, 50, 0.5, "saw", 0.3, 0.6)
 	_start_music()
 
@@ -141,6 +145,26 @@ func _boom() -> AudioStreamWAV:
 		var crackle := (randf() * 2.0 - 1.0) * exp(-t * 14.0) * 0.6
 		var s := (thump * 0.9 + rumble * 1.3 + crackle) * minf(1.0, t * 120.0)
 		data.encode_s16(i * 2, int(clampf(s * 0.8, -1.0, 1.0) * 32767.0))
+	return _make_stream(data)
+
+
+# A big angry roar: low growl, fast tremolo, noise.
+func _roar() -> AudioStreamWAV:
+	var dur := 0.95
+	var n := int(RATE * dur)
+	var data := PackedByteArray()
+	data.resize(n * 2)
+	var phase := 0.0
+	var lp := 0.0
+	for i in n:
+		var t := float(i) / n
+		var ts := t * dur
+		phase += (78.0 - 28.0 * t + 12.0 * sin(ts * 20.0)) / RATE
+		lp += (randf() * 2.0 - 1.0 - lp) * 0.12
+		var growl := 0.55 + 0.45 * sin(TAU * 32.0 * ts)
+		var s := (_wave("saw", phase) * 0.7 + _wave("square", phase * 1.5) * 0.25 + lp * 0.8) * growl
+		var env := minf(1.0, t * 10.0) * (1.0 - pow(t, 2.5))
+		data.encode_s16(i * 2, int(clampf(s * env * 0.55, -1.0, 1.0) * 32767.0))
 	return _make_stream(data)
 
 
