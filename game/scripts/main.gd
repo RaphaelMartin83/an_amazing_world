@@ -9,6 +9,7 @@ const Hud = preload("res://scripts/hud.gd")
 const FaceIcon = preload("res://scripts/face_icon.gd")
 const FriendConfig = preload("res://scripts/friend_config.gd")
 const Credits = preload("res://scripts/credits.gd")
+const Intro = preload("res://scripts/intro.gd")
 
 var level_root: Node3D
 var player: CharacterBody3D
@@ -37,14 +38,38 @@ func _ready() -> void:
 	var start_level := _level_from_args()
 	selected_level = maxi(start_level, 0)
 	load_level(selected_level)
+	var dev_mode: bool = "--selftest" in OS.get_cmdline_user_args() or "--shots" in OS.get_cmdline_user_args()
 	if start_level >= 0:
 		_start_playing()
-	else:
+	elif dev_mode:
 		_show_title()
-	if "--selftest" in OS.get_cmdline_user_args() or "--shots" in OS.get_cmdline_user_args():
+	else:
+		_play_intro()
+	if dev_mode:
 		var dev := preload("res://scripts/dev/selftest.gd").new()
 		dev.main = self
 		add_child(dev)
+
+
+# The opening cards ("<NAME> INTERACTIVE presents", "A <NAME> STORY"), then the title screen fades in from black.
+func _play_intro() -> void:
+	state = "intro"
+	hud.visible = false
+	Sfx.set_music(false)
+	var c := Intro.new()
+	c.name = "Intro"
+	add_child(c)
+	c.finished.connect(_on_intro_finished.bind(c))
+	c.start(str(Game.hero.name))
+
+
+func _on_intro_finished(c: Node) -> void:
+	c.queue_free()
+	hud.visible = true
+	Sfx.set_music(true)
+	hud.fade.color.a = 1.0
+	_show_title()
+	hud.fade_to(0.0, 0.9)
 
 
 func _make_face_viewport() -> void:

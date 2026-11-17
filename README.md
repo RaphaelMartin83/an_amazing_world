@@ -48,6 +48,10 @@ itself and speeds up). The **fart button does a barrel roll**: a burst of green 
 you pass through obstacles (cooldown ~2 s). Fly through the golden rings for checkpoints, grab the beers on the way, and
 finish through the rainbow arch. A shield (if you have one) absorbs one crash.
 
+**The opening:** the game starts with two cards on black — "PALMOUZE INTERACTIVE presents", then "A PALMOUZE STORY" (the
+text types itself in; any key skips) — and fades into the title screen. Starting with `--level=N` skips it.
+The text is in `game/scripts/intro.gd`; the name comes from `game/scripts/friend_config.gd`.
+
 **The ending:** beating the last boss (and walking into his portal) plays the birthday credits: a huge animated
 "HAPPY BIRTHDAY PALMOUZE" with confetti, beer bottles, fireworks and a "Happy Birthday" tune, then *Starring: Palmouze*,
 *Made by: Love for Palmouze*, *Inspired by: Palmouze*, then the "THE END" screen. Enter skips. (The name comes from

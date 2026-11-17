@@ -312,6 +312,9 @@ func _selftest() -> void:
 	print("== boss: Don Humo (the cigar)")
 	await _cigar_tests()
 
+	print("== intro")
+	await _intro_tests()
+
 	print("== music")
 	await _music_tests()
 
@@ -504,6 +507,9 @@ func _shots() -> void:
 	]
 	if "--only=credits" in OS.get_cmdline_user_args():
 		await _credits_shots(out)
+		return
+	if "--only=intro" in OS.get_cmdline_user_args():
+		await _intro_shots(out)
 		return
 	if "--only=sky" in OS.get_cmdline_user_args():
 		await _sky_shots(out)
@@ -1512,3 +1518,52 @@ func _music_tests() -> void:
 	Sfx.set_music(true)
 	_check(not Sfx.music_player.stream_paused, "...and resumed")
 	_check(Sfx.sounds.has("birthday") or true, "the birthday tune is separate")
+
+
+# ------------------------------------------------------------------ intro
+
+func _intro_tests() -> void:
+	main._play_intro()
+	await frames(5)
+	_check(main.state == "intro" and main.has_node("Intro") and not main.hud.visible, "the intro plays over a black screen")
+	var c: CanvasLayer = main.get_node("Intro")
+	_check(c.card_texts == ["PALMOUZE INTERACTIVE presents", "A PALMOUZE STORY"], "the two cards read '%s' and '%s'" % [c.card_texts[0], c.card_texts[1]])
+	c.t = 2.6
+	await frames(3)
+	_check(c.card1.modulate.a > 0.95 and c.card2.modulate.a < 0.05 and c.title1.visible_ratio >= 1.0 and c.presents.visible_ratio >= 1.0, "first card: PALMOUZE INTERACTIVE, then 'presents'")
+	_check(c.title1.get_parsed_text() == "PALMOUZE INTERACTIVE" and c.presents.text == "presents", "...with the exact words")
+	c.t = 6.5
+	await frames(3)
+	_check(c.card2.modulate.a > 0.95 and c.card1.modulate.a < 0.05 and c.title2.visible_ratio >= 1.0, "second card: A PALMOUZE STORY")
+	_check(c.title2.get_parsed_text() == "A PALMOUZE STORY", "...with the exact words")
+	c.t = 4.8
+	await frames(3)
+	_check(c.card1.modulate.a < 0.05 and c.card2.modulate.a < 0.05, "a black beat between the two cards")
+	# any key skips straight to the title screen
+	c.t = 3.0
+	var ev := InputEventKey.new()
+	ev.physical_keycode = KEY_SPACE
+	ev.pressed = true
+	Input.parse_input_event(ev)
+	await frames(4)
+	_check(main.state == "title" and not main.has_node("Intro") and main.hud.visible, "a key press skips the intro and shows the title screen")
+	# left alone it ends by itself
+	main._play_intro()
+	for i in 700:
+		await frames(1)
+		if main.state == "title":
+			break
+	_check(main.state == "title" and not main.has_node("Intro") and Sfx.music_wanted, "left alone, the intro ends by itself and the music starts")
+
+
+func _intro_shots(out: String) -> void:
+	main._play_intro()
+	await frames(5)
+	var c: CanvasLayer = main.get_node("Intro")
+	for step in [[1.0, "intro_1a"], [3.0, "intro_1b"], [6.0, "intro_2a"], [7.4, "intro_2b"]]:
+		c.t = step[0]
+		await frames(8)
+		_save(out, step[1])
+	c.finish()
+	await frames(20)
+	_save(out, "intro_to_title")
