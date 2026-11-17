@@ -15,6 +15,9 @@ const Conveyor = preload("res://scripts/conveyor.gd")
 const Wave = preload("res://scripts/wave.gd")
 const Boss = preload("res://scripts/boss.gd")
 const CigarBoss = preload("res://scripts/cigar_boss.gd")
+const FlightObstacle = preload("res://scripts/flight_obstacle.gd")
+const CheckpointRing = preload("res://scripts/checkpoint_ring.gd")
+const FlightGoal = preload("res://scripts/flight_goal.gd")
 
 var root: Node3D
 var theme: Dictionary
@@ -696,3 +699,80 @@ func bar(z: float) -> void:
 			T.cylinder(root, 0.06, 0.1, 0.35, Vector3(bx, 3.98 + row * 1.6, z - 0.8), gm, 8)
 	var mirror := T.box(root, Vector3(14.0, 4.6, 0.1), Vector3(0, 5.0, z - 1.25), T.emissive(Color(0.35, 0.25, 0.15), 0.5))
 	mirror.name = "Mirror"
+
+
+# ------------------------------------------------------------------ plane level
+
+func fly(kind: String, pos: Vector3, props := {}) -> Node3D:
+	var o := FlightObstacle.new()
+	o.kind = kind
+	o.position = pos
+	for key in props:
+		o.set(key, props[key])
+	root.add_child(o)
+	return o
+
+
+# A wall of storm clouds across the lane with a gap (a slalom). Two rows so there is no flying over or under it.
+func storm_wall(z: float, gap_x: float, gap := 5.0, r := 4.5) -> void:
+	for y in [4.5, 13.5]:
+		var x := gap_x - (gap + r)
+		while x > -17.0:
+			fly("storm", Vector3(x, y, z), {"radius": r, "phase": absf(x + z)})
+			x -= r * 2.0
+		x = gap_x + (gap + r)
+		while x < 17.0:
+			fly("storm", Vector3(x, y, z), {"radius": r, "phase": absf(x + z)})
+			x += r * 2.0
+
+
+func fly_ring(pos: Vector3) -> void:
+	var c := CheckpointRing.new()
+	c.position = pos
+	root.add_child(c)
+
+
+func fly_goal(pos: Vector3) -> void:
+	var g := FlightGoal.new()
+	g.position = pos
+	root.add_child(g)
+
+
+# Beers along a line / arc, positioned so the plane (whose pickup point is 0.9 m below its centre) flies through them.
+func fly_beers(a: Vector3, b: Vector3, n: int, arc := 0.0) -> void:
+	for i in n:
+		var u := 0.0 if n == 1 else float(i) / (n - 1)
+		var p := a.lerp(b, u)
+		p.y += sin(u * PI) * arc + 0.9
+		fruit(p)
+
+
+func cloud(pos: Vector3, s := 1.0) -> void:
+	var n := Node3D.new()
+	n.position = pos
+	var white := T.mat(Color(1, 1, 1), false, 1.0)
+	white.emission_enabled = true
+	white.emission = Color(0.8, 0.85, 0.95)
+	white.emission_energy_multiplier = 0.25
+	var base := rng.randf_range(5.0, 9.0) * s
+	for i in 5:
+		var a := rng.randf() * TAU
+		var r := base * rng.randf_range(0.5, 0.9)
+		var mi := T.sphere(n, r, Vector3(cos(a) * base * 0.9, rng.randf_range(-0.2, 0.5) * base * 0.5, sin(a) * base * 0.7), white, Vector3(1.0, 0.65, 1.0))
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	root.add_child(n)
+
+
+func sky_decor(z_a: float, z_b: float) -> void:
+	var z_lo := minf(z_a, z_b)
+	var z_hi := maxf(z_a, z_b)
+	for i in 70:
+		var side := -1.0 if rng.randf() < 0.5 else 1.0
+		cloud(Vector3(side * rng.randf_range(24.0, 75.0), rng.randf_range(-6.0, 30.0), rng.randf_range(z_lo, z_hi)), rng.randf_range(0.8, 1.8))
+	for i in 16:
+		var side := -1.0 if i % 2 == 0 else 1.0
+		var h := rng.randf_range(35.0, 70.0)
+		var px := side * rng.randf_range(55.0, 110.0)
+		var pz := rng.randf_range(z_lo, z_hi)
+		T.cylinder(root, 0.0, rng.randf_range(18.0, 30.0), h, Vector3(px, -10.0 + h * 0.5, pz), T.mat(Color(0.5, 0.58, 0.7), false, 1.0), 7)
+		T.cylinder(root, 0.0, 6.0, h * 0.28, Vector3(px, -10.0 + h * 0.86, pz), T.mat(Color(0.97, 0.98, 1.0), false, 1.0), 7)

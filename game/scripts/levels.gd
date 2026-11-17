@@ -4,9 +4,9 @@ extends RefCounted
 const Kit = preload("res://scripts/level_kit.gd")
 
 # Level order. Add new levels here (and in build()); tests and menus look levels up by key via idx().
-const KEYS := ["jungle", "boulder", "cigar", "sewer", "city", "beach", "snow", "brewery"]
-const NAMES := ["1. JUNGLE RUN", "2. BOULDER RUSH", "3. DON HUMO", "4. SEWER SURGE", "5. NEON ROOFTOPS", "6. SUNNY SHORES", "7. FROZEN PEAKS", "8. THE BREWMASTER"]
-const COUNT := 8
+const KEYS := ["jungle", "boulder", "cigar", "sewer", "city", "beach", "snow", "sky", "brewery"]
+const NAMES := ["1. JUNGLE RUN", "2. BOULDER RUSH", "3. DON HUMO", "4. SEWER SURGE", "5. NEON ROOFTOPS", "6. SUNNY SHORES", "7. FROZEN PEAKS", "8. PALMOUZE AIRWAYS", "9. THE BREWMASTER"]
+const COUNT := 9
 
 
 static func idx(key: String) -> int:
@@ -118,6 +118,21 @@ const THEMES := {
 		"sun_color": Color(1.0, 0.8, 0.55), "sun_energy": 0.4, "sun_rot": Vector3(-60, -25, 0),
 		"ambient": 1.2,
 	},
+	"sky": {
+		"name": "sky",
+		"top_a": Color(0.9, 0.93, 1.0), "top_b": Color(1.0, 1.0, 1.0),
+		"path_a": Color(0.9, 0.93, 1.0), "path_b": Color(1.0, 1.0, 1.0),
+		"dirt_a": Color(0.6, 0.65, 0.75), "dirt_b": Color(0.8, 0.84, 0.92),
+		"lip": Color(0.9, 0.9, 0.95),
+		"leaf_a": Color(0.2, 0.5, 0.25), "leaf_b": Color(0.3, 0.6, 0.3),
+		"water": Color(0.74, 0.82, 0.95, 1.0),
+		"mountain": Color(0.55, 0.62, 0.78), "pillar": Color.WHITE,
+		"sky_top": Color(0.14, 0.44, 0.96), "sky_horizon": Color(0.96, 0.93, 0.86),
+		"ground_horizon": Color(0.96, 0.93, 0.86), "ground_bottom": Color(0.7, 0.8, 0.95),
+		"fog": Color(0.86, 0.91, 1.0), "fog_density": 0.0013,
+		"sun_color": Color(1.0, 0.96, 0.86), "sun_energy": 1.3, "sun_rot": Vector3(-38, -30, 0),
+		"ambient": 1.0,
+	},
 	"ruins": {
 		"name": "ruins",
 		"top_a": Color(0.82, 0.68, 0.42), "top_b": Color(0.95, 0.82, 0.55),
@@ -152,6 +167,8 @@ static func build(index: int, root: Node3D) -> Dictionary:
 			return _beach_run(root)
 		6:
 			return _snow_run(root)
+		7:
+			return _sky_run(root)
 		_:
 			return _brewmaster(root)
 
@@ -672,7 +689,7 @@ static func _snow_run(root: Node3D) -> Dictionary:
 static func _brewmaster(root: Node3D) -> Dictionary:
 	var theme: Dictionary = THEMES.brewery
 	var k := Kit.new(root, theme)
-	k.info.title = NAMES[7]
+	k.info.title = NAMES[8]
 	k.info.theme = theme
 	k.info.start = Vector3(0, 0.05, 6)
 	k.info.kill_y = -10.0
@@ -724,4 +741,71 @@ static func _cigar_lounge(root: Node3D) -> Dictionary:
 	k.fruit_line(Vector3(-8.5, 0.7, 7), Vector3(-8.5, 0.7, -6), 6)
 	k.fruit_line(Vector3(8.5, 0.7, 7), Vector3(8.5, 0.7, -6), 6)
 	k.fruit_arc(Vector3(-4, 0.8, 8), Vector3(4, 0.8, 8), 7, 2.4)
+	return k.info
+
+
+# =============================================================== LEVEL 8 (plane)
+static func _sky_run(root: Node3D) -> Dictionary:
+	var theme: Dictionary = THEMES.sky
+	var k := Kit.new(root, theme)
+	k.info.title = NAMES[7]
+	k.info.theme = theme
+	k.info.start = Vector3(0, 9, 0)
+	k.info.kill_y = -80.0
+	k.info.flight = true
+	k.info.fov = 70.0
+	k.info.camera_offset = Vector3(0, 3.6, 12.5)
+	k.info.camera_look = Vector3(0, 0.8, -14.0)
+
+	# --- 1: open sky - floating rocks and seagulls, easy to get the feel of it
+	for r in [[-9, 8, -60, 3.0], [9, 11, -85, 3.4], [-4, 5, -112, 3.0], [11, 6, -135, 3.2], [0, 15, -160, 3.5]]:
+		k.fly("rock", Vector3(r[0], r[1], r[2]), {"radius": r[3]})
+	k.fly("bird", Vector3(0, 9, -100), {"radius": 1.1, "amp": 9.0, "speed": 1.4})
+	k.fly("bird", Vector3(0, 12, -150), {"radius": 1.1, "amp": 10.0, "speed": 1.1, "phase": 2.0})
+	k.fly_beers(Vector3(0, 9, -25), Vector3(0, 9, -55), 8)
+	k.fly_beers(Vector3(3, 9, -66), Vector3(-2, 12, -100), 9, 1.5)
+	k.fly_beers(Vector3(-6, 10, -118), Vector3(6, 10, -150), 9, 2.0)
+	k.fly_ring(Vector3(0, 9, -185))
+
+	# --- 2: balloon forest - slalom between hot-air balloons
+	for b in [[-7, 10, -215], [7, 7, -232], [-3, 13, -250], [8, 12, -268], [-10, 6, -285], [2, 9, -300], [10, 9, -318], [-6, 12, -335], [0, 5, -348]]:
+		k.fly("balloon", Vector3(b[0], b[1], b[2]), {"radius": 3.2, "phase": float(b[2]) * 0.1})
+	k.fly("bird", Vector3(0, 8, -260), {"radius": 1.1, "amp": 8.0, "speed": 1.7})
+	k.fly("bird", Vector3(0, 11, -325), {"radius": 1.1, "amp": 9.0, "speed": 1.3, "phase": 1.0})
+	k.fly_beers(Vector3(0, 9, -200), Vector3(0, 9, -226), 7)
+	k.fly_beers(Vector3(-2, 9, -240), Vector3(3, 10, -295), 10, 1.0)
+	k.fly_beers(Vector3(5, 9, -305), Vector3(-4, 9, -340), 8, 1.0)
+	k.fly_ring(Vector3(0, 9, -375))
+
+	# --- 3: storm front - four walls of thunderclouds, each with a gap in a different place
+	k.storm_wall(-405, 0.0)
+	k.storm_wall(-440, -8.0)
+	k.storm_wall(-475, 8.0)
+	k.storm_wall(-510, 0.0)
+	k.fly_beers(Vector3(0, 9, -385), Vector3(0, 9, -400), 4)
+	k.fly_beers(Vector3(-1, 9, -412), Vector3(-8, 9, -434), 5)
+	k.fly_beers(Vector3(-8, 9, -446), Vector3(8, 9, -469), 7)
+	k.fly_beers(Vector3(8, 9, -481), Vector3(0, 9, -504), 6)
+	k.fly_ring(Vector3(0, 9, -560))
+
+	# --- 4: windmill valley - towers with spinning blades (fly between, or over the top)
+	for w in [[-8, 11, -575], [7, 8, -595], [0, 13, -615], [-10, 10, -635], [9, 12, -650], [-3, 7, -670]]:
+		k.fly("tower", Vector3(w[0], 0, w[2]), {"radius": 1.7, "height": float(w[1]), "bar_len": 5.5, "speed": 1.6 if w[0] < 0 else -1.4})
+	k.fly("gate", Vector3(0, 10, -690), {"bar_len": 9.0, "speed": 1.2})
+	k.fly_beers(Vector3(0, 9, -565), Vector3(0, 9, -585), 5)
+	k.fly_beers(Vector3(3, 9, -600), Vector3(-5, 14, -640), 9, 1.5)
+	k.fly_beers(Vector3(5, 14, -648), Vector3(0, 10, -680), 6)
+
+	# --- 5: Don Humo's blimps and the final propeller gate
+	for b in [[-5, 6, -715], [6, 13, -735], [0, 9, -752]]:
+		k.fly("blimp", Vector3(b[0], b[1], b[2]), {"radius": 2.3, "half_len": 7.0})
+	k.fly("gate", Vector3(0, 9, -775), {"bar_len": 10.0, "speed": -1.5, "phase": 1.0})
+	k.fly("bird", Vector3(0, 12, -705), {"radius": 1.1, "amp": 10.0, "speed": 1.6})
+	k.fly_beers(Vector3(0, 9, -700), Vector3(-6, 10, -712), 4)
+	k.fly_beers(Vector3(0, 10, -722), Vector3(0, 12, -748), 7, 1.0)
+	k.fly_goal(Vector3(0, 9, -810))
+
+	# --- the sky: a sea of clouds below, clouds and far peaks around
+	k.water(-10.0, -400.0, 1000.0)
+	k.sky_decor(40.0, -860.0)
 	return k.info

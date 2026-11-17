@@ -315,6 +315,9 @@ func _selftest() -> void:
 	print("== credits")
 	await _credits_tests()
 
+	print("== plane level")
+	await _flight_tests()
+
 	print("== bot plays level 1 (Jungle Run)")
 	await _play(0, 150.0)
 	print("== bot plays level 2 (Boulder Rush)")
@@ -499,12 +502,16 @@ func _shots() -> void:
 	if "--only=credits" in OS.get_cmdline_user_args():
 		await _credits_shots(out)
 		return
+	if "--only=sky" in OS.get_cmdline_user_args():
+		await _sky_shots(out)
+		return
 	main._select_level(1)
 	await frames(30)
 	_save(out, "title")
 	await _belt_motion(out)
 	await _boss_shots(out)
 	await _cigar_shots(out)
+	await _sky_shots(out)
 	await _credits_shots(out)
 	var cur := -1
 	for s in spots:
@@ -1215,3 +1222,229 @@ func _credits_shots(out: String) -> void:
 	await frames(10)
 	_save(out, "the_end")
 	main.state = "playing"
+
+
+# ------------------------------------------------------------------ plane level
+
+func _obstacle(kind: String, pos: Vector3, props := {}) -> Node3D:
+	var o: Node3D = preload("res://scripts/flight_obstacle.gd").new()
+	o.kind = kind
+	o.position = pos
+	for k in props:
+		o.set(k, props[k])
+	return o
+
+
+func _flight_tests() -> void:
+	# ---- obstacle geometry (pure maths, no scene needed)
+	var rock := _obstacle("rock", Vector3(0, 9, -50), {"radius": 3.0})
+	var blimp := _obstacle("blimp", Vector3(0, 9, -50), {"radius": 2.3, "half_len": 7.0})
+	var tower := _obstacle("tower", Vector3(0, 0, -50), {"radius": 1.7, "height": 10.0, "bar_len": 5.5, "speed": 0.0})
+	var gate := _obstacle("gate", Vector3(0, 10, -50), {"bar_len": 9.0, "speed": 0.0})
+	var bird := _obstacle("bird", Vector3(0, 9, -50), {"radius": 1.1, "amp": 8.0, "speed": 1.0})
+	rock.origin = rock.position
+	blimp.origin = blimp.position
+	tower.origin = tower.position
+	gate.origin = gate.position
+	bird.origin = bird.position
+	_check(rock.check(Vector3(2, 9, -50), 1.2) and not rock.check(Vector3(5, 9, -50), 1.2), "rock: hit inside its radius, clear outside")
+	_check(blimp.check(Vector3(6, 9, -50), 1.2) and blimp.check(Vector3(-8, 9, -50), 1.2) and not blimp.check(Vector3(0, 13.5, -50), 1.2) and not blimp.check(Vector3(12, 9, -50), 1.2),
+		"blimp: a long capsule across the lane (hit along it, clear above and past its ends)")
+	_check(tower.check(Vector3(0, 4, -50), 1.2) and not tower.check(Vector3(5, 4, -50), 1.2) and not tower.check(Vector3(0, 20, -50), 1.2),
+		"windmill: solid tower, free air above the blades")
+	_check(tower.check(Vector3(4, 11.4, -50), 1.2) and not tower.check(Vector3(4, 11.4, -45), 1.2), "windmill: the spinning blades hit only in their own plane")
+	_check(gate.check(Vector3(6, 10, -50), 1.2) and gate.check(Vector3(0, 10, -50), 1.2) and not gate.check(Vector3(0, 15, -50), 1.2) and not gate.check(Vector3(6, 14, -50), 1.2),
+		"propeller gate: the bar and hub hit, the open quadrants are free")
+	gate.speed = 1.0
+	_check(gate.check(Vector3(6, 10, -50), 1.2, 0.0) and not gate.check(Vector3(6, 10, -50), 1.2, PI / 2.0),
+		"propeller gate: collision predicts where the bar will be (used by the bot)")
+	_check(bird.check(Vector3(0, 9, -50), 1.2) and not bird.check(Vector3(-4, 9, -50), 1.2) and bird.check(Vector3(8, 9, -50), 1.2, PI / 2.0),
+		"seagull: sways side to side")
+	for o in [rock, blimp, tower, gate, bird]:
+		o.free()
+
+	# ---- the plane itself
+	main.load_level(Levels.idx("sky"))
+	main._start_playing()
+	var p: Node3D = main.player
+	await frames(20)
+	_check(p.get_script() == preload("res://scripts/plane_player.gd") and Game.player == p, "the sky level uses the plane controller")
+	_check(absf(main.cam_rig.camera.fov - 70.0) < 0.1, "the camera is widened for flying")
+	p.invuln = 1000.0        # these first checks are about flying, not about crashing
+	var z0 := p.global_position.z
+	await frames(60)
+	_check(z0 - p.global_position.z > 20.0, "the plane flies forward by itself (%.0f m in 1 s)" % (z0 - p.global_position.z))
+	var x0 := p.global_position.x
+	_hold("move_right", 1.0)
+	await frames(30)
+	_check(p.global_position.x - x0 > 3.0, "steering right moves the plane right")
+	await frames(120)
+	_check(p.global_position.x <= 15.01, "the plane cannot leave the lane (x=%.1f)" % p.global_position.x)
+	_hold("move_right", 0.0)
+	var y0 := p.global_position.y
+	_hold("move_forward", 1.0)
+	await frames(30)
+	_check(p.global_position.y - y0 > 3.0, "steering up climbs")
+	await frames(120)
+	_check(p.global_position.y <= 17.01, "the plane cannot climb out of the lane (y=%.1f)" % p.global_position.y)
+	_hold("move_forward", 0.0)
+
+	# ---- crashing and the fart barrel roll
+	var rock2 := _obstacle("rock", Vector3(0, 9, -300), {"radius": 3.0})
+	main.level_root.add_child(rock2)
+	Game.set_mask(true)
+	p.respawn(Vector3(0, 9, -285))
+	p.invuln = 0.0
+	await frames(50)
+	_check(not Game.has_mask, "flying into a rock hurts (here it costs the shield)")
+	Game.set_mask(true)
+	p.respawn(Vector3(0, 9, -285))
+	p.invuln = 0.0
+	_tap("spin")
+	await frames(3)
+	_release_taps()
+	await frames(50)
+	_check(Game.has_mask and p.roll_cd > 0.0, "the fart barrel roll makes the plane safe for a moment")
+	p.invuln = 1000.0
+	rock2.queue_free()
+
+	# ---- checkpoint ring, dying, respawning
+	Game.checkpoint = null
+	var ring: Node3D = null            # the last ring (the plane has not flown past it yet)
+	for n in main.level_root.get_children():
+		if n.get_script() == preload("res://scripts/checkpoint_ring.gd"):
+			if ring == null or n.global_position.z < ring.global_position.z:
+				ring = n
+	p.respawn(Vector3(0, 9, ring.global_position.z + 12.0))
+	p.invuln = 1000.0
+	await frames(40)
+	_check(Game.checkpoint != null and absf(Game.checkpoint.z - ring.global_position.z) < 0.1, "flying through a ring sets the checkpoint")
+	Game.set_mask(false)
+	var rock3 := _obstacle("rock", Vector3(0, 9, ring.global_position.z - 40.0), {"radius": 3.0})
+	main.level_root.add_child(rock3)
+	p.respawn(Vector3(0, 9, ring.global_position.z - 20.0))
+	p.invuln = 0.0
+	await frames(100)
+	_check(p.dead, "without a shield a crash is fatal")
+	for i in 220:
+		await frames(1)
+		if not p.dead:
+			break
+	_check(not p.dead and absf(p.global_position.z - ring.global_position.z) < 3.0, "the plane respawns at the checkpoint ring")
+	rock3.queue_free()
+	p.invuln = 1000.0
+
+	# ---- the finish arch
+	var goal: Node3D = null
+	for n in main.level_root.get_children():
+		if n.get_script() == preload("res://scripts/flight_goal.gd"):
+			goal = n
+			break
+	p.respawn(Vector3(3, 9, goal.global_position.z + 25.0))
+	p.invuln = 1000.0
+	await frames(80)
+	_check(main.state == "complete" or main.state == "complete_wait", "flying through the finish arch completes the level")
+	main.state = "playing"
+
+	# ---- the whole level, flown by a bot that plans a path around the obstacles
+	print("  (flying the whole level with the bot...)")
+	await _play_flight(120.0)
+
+
+# The bot looks ~0.9 s ahead, picks the safest reachable spot in the lane and steers there; it rolls if every
+# option is blocked.
+func _play_flight(timeout_s: float) -> void:
+	Game.reset_run()
+	main.load_level(Levels.idx("sky"))
+	main._start_playing()
+	var p: Node3D = main.player
+	var obstacles := get_tree().get_nodes_in_group("flight_obstacle")
+	var deaths := 0
+	var last_dead := false
+	var t := 0.0
+	var frame := 0
+	var tx := 0.0
+	var ty := 9.0
+	while main.state == "playing" and t < timeout_s:
+		await get_tree().physics_frame
+		t += 1.0 / 60.0
+		frame += 1
+		if p.dead and not last_dead:
+			deaths += 1
+			print("    crash #%d at z=%.0f (x=%.1f y=%.1f)" % [deaths, p.global_position.z, p.global_position.x, p.global_position.y])
+		last_dead = p.dead
+		if p.dead or not p.controls_enabled:
+			continue
+		if frame % 5 == 1:
+			var pos: Vector3 = p.global_position
+			var near := []
+			for o in obstacles:
+				if is_instance_valid(o) and o.origin.z < pos.z + 6.0 and o.origin.z > pos.z - 80.0:
+					near.append(o)
+			var horizon := 0.9
+			var best_cost := INF
+			var any_free := false
+			for cx in range(-13, 14, 2):
+				for cy in [3.5, 6.0, 8.5, 11.0, 13.5, 16.0]:
+					var hit := false
+					for f in [0.34, 0.67, 1.0]:
+						var q := Vector3(lerpf(pos.x, cx, f), lerpf(pos.y, cy, f), pos.z - p.speed * horizon * f)
+						for o in near:
+							if o.check(q, 2.2, horizon * f) or o.check(q + Vector3(3.3, 0, 0), 1.0, horizon * f) or o.check(q - Vector3(3.3, 0, 0), 1.0, horizon * f):
+								hit = true
+								break
+						if hit:
+							break
+					if hit:
+						continue
+					any_free = true
+					var cost := 0.5 * absf(cx - pos.x) + 0.5 * absf(cy - pos.y) + 0.06 * absf(cx) + 0.06 * absf(cy - 9.0)
+					if cost < best_cost:
+						best_cost = cost
+						tx = cx
+						ty = cy
+			if not any_free:
+				_tap("spin")
+		_tick_taps()
+		var ix := clampf((tx - p.global_position.x) * 0.7, -1.0, 1.0)
+		var iy := clampf((ty - p.global_position.y) * 0.7, -1.0, 1.0)
+		_hold("move_right", maxf(ix, 0.0))
+		_hold("move_left", maxf(-ix, 0.0))
+		_hold("move_forward", maxf(iy, 0.0))
+		_hold("move_back", maxf(-iy, 0.0))
+	_release_all()
+	var done: bool = main.state == "complete" or main.state == "complete_wait"
+	print("  finished=%s  time=%.1fs  crashes=%d  beers=%d" % [str(done), t, deaths, Game.fruit])
+	_check(done, "the plane level is completable by the bot")
+	main.state = "playing"
+
+
+func _sky_shots(out: String) -> void:
+	main.load_level(Levels.idx("sky"))
+	main._start_playing()
+	main.hud.banner.modulate.a = 0.0
+	var p: Node3D = main.player
+	var spots := [[8.0, "sky_start"], [-140.0, "sky_rocks"], [-262.0, "sky_balloons"], [-395.0, "sky_storm"], [-565.0, "sky_rings"],
+		[-640.0, "sky_windmills"], [-742.0, "sky_blimps"], [-795.0, "sky_finish"]]
+	for sp in spots:
+		p.respawn(Vector3(0, 9, sp[0]))
+		p.invuln = 100000.0
+		main.cam_rig.snap()
+		await frames(14)
+		_save(out, sp[1])
+	# a close-up of the plane and its pilot
+	p.respawn(Vector3(0, 9, -20))
+	p.invuln = 0.0           # (a huge invulnerability makes the plane blink, which ruins a close-up)
+	p.controls_enabled = false
+	await frames(4)
+	var cam := Camera3D.new()
+	main.level_root.add_child(cam)
+	cam.fov = 50
+	cam.current = true
+	main.hud.visible = false
+	for i in 3:
+		cam.global_position = p.global_position + Vector3(2.8 - i * 2.8, 1.8, 6.0 - i * 3.0)
+		cam.look_at(p.global_position + Vector3(0, 0.6, 0), Vector3.UP)
+		await frames(2)
+		_save(out, "sky_plane_%d" % i)
+	main.hud.visible = true

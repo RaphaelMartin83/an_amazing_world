@@ -117,6 +117,11 @@ static func torus(parent: Node, inner: float, outer: float, pos: Vector3, m: Mat
 	return _place(parent, mi, pos, m)
 
 
+# A pointed roof (cone) sitting at height y on a parent node.
+static func cone_roof(parent: Node, r: float, y: float) -> MeshInstance3D:
+	return cylinder(parent, 0.0, r * 0.95, r * 1.2, Vector3(0, y + r * 0.6, 0), mat(Color(0.8, 0.25, 0.18), true, 0.6, null, 0.05), 16)
+
+
 # Tileable brick wall texture (8 rows x 4 bricks per tile), cached by key.
 static func brick_tex(key: String, a: Color, b: Color, mortar: Color, size := 128) -> ImageTexture:
 	if _tex_cache.has(key):

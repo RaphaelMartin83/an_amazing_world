@@ -17,9 +17,9 @@ Everything (engine, export templates, tools) lives in a Docker image; nothing is
 | Body slam (slide button in mid-air) | C / Ctrl | B |
 | Pause / restart level | Esc / R | Start / Back |
 
-**Jumping to a level** (handy for trying new levels): pick it on the title screen (A/D or arrows, or press `1`-`8`),
-press `1`-`8` in the pause menu (Esc) to restart the run at that level, or start directly in one from the command line:
-`AnAmazingWorld.exe -- --level=3` (1 to 8) (Linux: `./AnAmazingWorld.x86_64 -- --level=3`).
+**Jumping to a level** (handy for trying new levels): pick it on the title screen (A/D or arrows, or press `1`-`9`),
+press `1`-`9` in the pause menu (Esc) to restart the run at that level, or start directly in one from the command line:
+`AnAmazingWorld.exe -- --level=3` (1 to 9) (Linux: `./AnAmazingWorld.x86_64 -- --level=3`).
 
 **Crates:** wooden (smash for a beer) · `^` bounce (jump on it up to 5 times) · `C` checkpoint ·
 `M` shield (survives one hit) · friend's face = extra life · grey iron (indestructible, stand on it) ·
@@ -31,7 +31,8 @@ Levels: 1 *Jungle Run* (gaps, moving platforms, spinning toys) · 2 *Boulder Rus
 5 *Neon Rooftops* (sunset city: a conveyor belt that carries you forward, faster, hovering drones, scaffolding) ·
 6 *Sunny Shores* (beach: tidal waves — foam warns you first — rotting pier planks, rafts, crabs, urchins) ·
 7 *Frozen Peaks* (snow: slippery ice, cracking ice, ice floes, penguins, falling snow) ·
-8 *The Brewmaster* (boss fight, see below).
+8 *Palmouze Airways* (a plane level, see below) ·
+9 *The Brewmaster* (boss fight, see below).
 
 **Boss — Don Humo** (level 3, a giant lit cigar in a smoky lounge). Attacks, always in this order: **ember rain** (red
 circles on the floor warn where burning embers will land; the fire patches stay for a few seconds — jump or run), a **flame
@@ -39,6 +40,13 @@ sweep** (he spins breathing a wall of fire along the floor — jump it) and a **
 the arena like a log — sidestep, he ends up crashing into the wall). After the flame sweep he **overheats**: he slumps on his
 back with his tip glowing. That is the only opening: **fart right next to the glowing tip** (fart + flame = boom). Each hit
 burns the cigar shorter, so he shrinks and gets faster. Four hits; if you die he keeps his damage.
+
+**Palmouze Airways** (level 8): Palmouze flies a little red biplane (the engine runs on farts: green exhaust) and has to
+avoid obstacles — floating rocks, seagulls, hot-air balloons, storm-cloud walls with a gap, windmills with spinning blades,
+Don Humo's cigar blimps and big spinning propeller gates. Steer with WASD / arrows / left stick (the plane flies forward by
+itself and speeds up). The **fart button does a barrel roll**: a burst of green gas, a speed boost and a short moment where
+you pass through obstacles (cooldown ~2 s). Fly through the golden rings for checkpoints, grab the beers on the way, and
+finish through the rainbow arch. A shield (if you have one) absorbs one crash.
 
 **The ending:** beating the last boss (and walking into his portal) plays the birthday credits: a huge animated
 "HAPPY BIRTHDAY PALMOUZE" with confetti, beer bottles, fireworks and a "Happy Birthday" tune, then *Starring: Palmouze*,

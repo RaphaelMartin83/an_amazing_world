@@ -167,6 +167,7 @@ func refresh() -> void:
 	lives_label.text = "x %d" % Game.lives
 	fruit_label.text = "%d / %d" % [Game.fruit, Game.FRUIT_FOR_LIFE]
 	crate_label.text = "crates %d / %d     gems %d / %d" % [Game.crates_broken, Game.crates_total, Game.gems, Game.gems_total]
+	crate_label.visible = Game.crates_total > 0 or Game.gems_total > 0
 	shield_label.text = "SHIELD" if Game.has_mask else ""
 
 

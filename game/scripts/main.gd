@@ -3,6 +3,7 @@ extends Node3D
 
 const Levels = preload("res://scripts/levels.gd")
 const Player = preload("res://scripts/player.gd")
+const PlanePlayer = preload("res://scripts/plane_player.gd")
 const CameraRig = preload("res://scripts/camera_rig.gd")
 const Hud = preload("res://scripts/hud.gd")
 const FaceIcon = preload("res://scripts/face_icon.gd")
@@ -122,7 +123,7 @@ func load_level(idx: int) -> void:
 	info = Levels.build(idx, level_root)
 	_make_environment(info.theme)
 
-	player = Player.new()
+	player = (PlanePlayer if info.get("flight", false) else Player).new()
 	player.name = "Player"
 	spawn_pos = info.start
 	player.position = spawn_pos
@@ -137,8 +138,12 @@ func load_level(idx: int) -> void:
 	cam_rig.look_offset = info.camera_look
 	level_root.add_child(cam_rig)
 	cam_rig.snap()
+	if info.get("fov") != null:
+		cam_rig.camera.fov = info.fov
 	if info.theme.get("snow", false):
 		_add_snowfall()
+	if info.get("flight", false):
+		_add_speed_lines()
 
 	boulder = info.boulder
 	var total := 0
@@ -148,6 +153,32 @@ func load_level(idx: int) -> void:
 	Game.crates_total = total
 	Game.gems_total = get_tree().get_nodes_in_group("gem").size()
 	Game.changed.emit()
+
+
+# Streaks rushing past the camera: a sense of speed for the plane level.
+func _add_speed_lines() -> void:
+	var p := CPUParticles3D.new()
+	var streak := BoxMesh.new()
+	streak.size = Vector3(0.05, 0.05, 3.0)
+	p.mesh = streak
+	var m := StandardMaterial3D.new()
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.albedo_color = Color(1, 1, 1, 0.55)
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	p.material_override = m
+	p.amount = 70
+	p.lifetime = 0.55
+	p.local_coords = true
+	p.emission_shape = CPUParticles3D.EMISSION_SHAPE_BOX
+	p.emission_box_extents = Vector3(16.0, 9.0, 3.0)
+	p.position = Vector3(0, 0, -38.0)
+	p.direction = Vector3(0, 0, 1)
+	p.spread = 0.0
+	p.initial_velocity_min = 70.0
+	p.initial_velocity_max = 90.0
+	p.gravity = Vector3.ZERO
+	p.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	cam_rig.camera.add_child(p)
 
 
 # Falling snow that follows the camera.
@@ -256,6 +287,8 @@ func _start_playing() -> void:
 	hud.show_banner(str(info.title))
 	if info.get("boss") != null:
 		info.boss.activate()
+	if info.get("flight", false):
+		Game.message.emit("STEER: WASD / STICK      FART = BARREL ROLL (SAFE!)", 5.0)
 
 
 func _on_player_died() -> void:
