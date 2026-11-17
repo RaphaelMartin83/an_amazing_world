@@ -28,7 +28,7 @@ press `1`-`6` in the pause menu (Esc) to restart the run at that level, or start
 **Beers:** small bottles to collect. 100 = extra life... and Palmouze pukes (a second of retching with a green face, a spray and a puddle — purely cosmetic: he keeps full control the whole time). **Enemies:** crabs can be stomped or spun; purple spiky ones only by spinning/sliding.
 
 Levels: 1 *Jungle Run* (gaps, moving platforms, spinning toys) · 2 *Boulder Rush* (outrun the boulder; camera in front) · 3 *Sewer Surge* (brick tunnel over toxic sludge: slimes, crumbling grates that drop ~0.5 s after you land, moving platforms, spinners) ·
-4 *Neon Rooftops* (sunset city: conveyor belts that push you back, hovering drones, scaffolding) ·
+4 *Neon Rooftops* (sunset city: a conveyor belt that carries you forward, faster, hovering drones, scaffolding) ·
 5 *Sunny Shores* (beach: tidal waves — foam warns you first — rotting pier planks, rafts, crabs, urchins) ·
 6 *Frozen Peaks* (snow: slippery ice, cracking ice, ice floes, penguins, falling snow).
 

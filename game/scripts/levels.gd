@@ -388,10 +388,10 @@ static func _city_run(root: Node3D) -> Dictionary:
 	k.rock(Vector3(-2.0, 0, -31), Vector3(3.4, 1.3, 1.8))     # an air-conditioning unit
 	k.fruit_arc(Vector3(0, 0.8, -35), Vector3(0, 0.8, -44), 6, 2.4)
 
-	# --- B: conveyor belt rooftop (pushes you backwards)
+	# --- B: conveyor belt rooftop (a speed boost: carries you forward, away from the camera)
 	k.ground(0, 0, -43, -53, 8, D)
 	k.crate("checkpoint", Vector3(0, 0, -45.5))
-	k.conveyor(0.0, -53, -65, 8, Vector3(0, 0, 1), 4.5)
+	k.conveyor(0.0, -53, -65, 8, Vector3(0, 0, -1), 4.5)
 	k.crate("basic", Vector3(-3.3, 0, -59))
 	k.crate("basic", Vector3(3.3, 0, -59))
 	k.fruit_line(Vector3(0, 0.7, -55), Vector3(0, 0.7, -63), 5)

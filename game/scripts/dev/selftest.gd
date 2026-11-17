@@ -217,11 +217,27 @@ func _selftest() -> void:
 	main._start_playing()
 	p = main.player
 	await frames(30)
-	p.respawn(Vector3(0, 0.1, -59.0))   # on the conveyor belt (pushes towards +Z)
+	p.respawn(Vector3(0, 0.1, -53.6))   # standing on the start of the conveyor belt (it pushes towards -Z, forward)
 	await frames(10)
 	var cz0 := p.global_position.z
-	await frames(60)
-	_check(p.global_position.z - cz0 > 3.0, "conveyor belt carries the hero backwards (%.1f m in 1 s)" % (p.global_position.z - cz0))
+	await frames(40)
+	var carried := cz0 - p.global_position.z
+	_check(carried > 2.0, "conveyor belt carries the hero forward, away from the camera (%.1f m in 0.67 s)" % carried)
+	p.respawn(Vector3(0, 0.1, -53.6))
+	await frames(10)
+	cz0 = p.global_position.z
+	_hold("move_forward", 1.0)
+	await frames(40)
+	_hold("move_forward", 0.0)
+	var on_belt := cz0 - p.global_position.z
+	p.respawn(Vector3(0, 0.1, -22.0))   # plain ground
+	await frames(10)
+	cz0 = p.global_position.z
+	_hold("move_forward", 1.0)
+	await frames(40)
+	_hold("move_forward", 0.0)
+	var on_ground := cz0 - p.global_position.z
+	_check(on_belt > on_ground + 2.0, "running with the belt is faster (%.1f m vs %.1f m on plain ground)" % [on_belt, on_ground])
 	main.load_level(5)
 	main._start_playing()
 	p = main.player
@@ -661,5 +677,10 @@ func _belt_motion(out: String) -> void:
 	var physical_z := signf(belt.constant_linear_velocity.z)
 	print("belt: chevrons shift %d px (screen %s); belt pushes towards %s" % [best, "UP (-Z, away from the camera)" if best < 0 else "DOWN (+Z, towards the camera)", "-Z (away from the camera)" if physical_z < 0 else "+Z (towards the camera)"])
 	_check(best != 0 and visual_z == physical_z, "conveyor: the chevrons move the way the belt pushes")
+	# and at the belt's speed: speed * 6 frames at 60 fps, seen from 12 m up with a 40 degree lens
+	var px_per_m := float(rows) / (2.0 * 12.0 * tan(deg_to_rad(20.0)))
+	var expected_px: float = absf(belt.constant_linear_velocity.z) * (6.0 / 60.0) * px_per_m
+	print("belt: moved %d px, expected about %.0f px for the belt's speed" % [absi(best), expected_px])
+	_check(absf(absf(float(best)) - expected_px) < 10.0, "conveyor: the chevrons scroll at the belt's speed")
 	cam.queue_free()
 	main.hud.visible = true
