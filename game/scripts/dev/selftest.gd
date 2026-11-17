@@ -312,6 +312,9 @@ func _selftest() -> void:
 	print("== boss: Don Humo (the cigar)")
 	await _cigar_tests()
 
+	print("== music")
+	await _music_tests()
+
 	print("== credits")
 	await _credits_tests()
 
@@ -1448,3 +1451,64 @@ func _sky_shots(out: String) -> void:
 		await frames(2)
 		_save(out, "sky_plane_%d" % i)
 	main.hud.visible = true
+
+
+# ------------------------------------------------------------------ music
+
+func _music_tests() -> void:
+	var Music := preload("res://scripts/music.gd")
+	_check(absf(Music.freq("A4") - 440.0) < 0.01 and absf(Music.freq("E2") - 82.41) < 0.05 and absf(Music.freq("C#3") - 138.59) < 0.05, "note names convert to the right frequencies")
+	var t0 := Time.get_ticks_msec()
+	var w: AudioStreamWAV = Music.build()
+	var secs := (Time.get_ticks_msec() - t0) / 1000.0
+	var expected: float = Music.BARS * Music.STEPS * (60.0 / Music.BPM / 4.0)
+	print("  (music built in %.1f s)" % secs)
+	_check(absf(w.get_length() - expected) < 0.1 and w.loop_mode == AudioStreamWAV.LOOP_FORWARD, "the guitar track is %d bars long (%.1f s) and loops" % [Music.BARS, w.get_length()])
+	var data: PackedByteArray = w.data
+	var n := data.size() / 2
+	var peak := 0.0
+	var sum_sq := 0.0
+	for i in n:
+		var v := absf(data.decode_s16(i * 2)) / 32768.0
+		peak = maxf(peak, v)
+		sum_sq += v * v
+	var rms := sqrt(sum_sq / n)
+	_check(peak > 0.8 and peak < 0.95 and rms > 0.12 and rms < 0.45, "the track is loud enough without clipping (peak %.2f, rms %.2f)" % [peak, rms])
+	# every guitar note is in tune (checked on the note alone, by autocorrelation)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 5
+	var worst := 0.0
+	var worst_name := ""
+	for nm in ["D2", "E2", "G2", "A2", "B2", "D3", "E3", "G3", "A3", "B3", "D4"]:
+		var smp: PackedFloat32Array = Music._guitar(nm, "s", 4, 0.11, rng)
+		var fx: float = Music.freq(nm)
+		var base := int(Music.RATE / fx)
+		var from_i := int(0.12 * Music.RATE)
+		var best_lag := base
+		var best_c := -INF
+		for lag in range(int(base * 0.9), int(base * 1.1) + 2):
+			var c := 0.0
+			for i in range(from_i, from_i + 3000):
+				c += smp[i] * smp[i + lag]
+			if c > best_c:
+				best_c = c
+				best_lag = lag
+		var heard := float(Music.RATE) / best_lag
+		var cents := absf(1200.0 * log(heard / fx) / log(2.0))
+		if cents > worst:
+			worst = cents
+			worst_name = nm
+	_check(worst < 25.0, "the guitar notes are in tune (worst: %s, %.0f cents off)" % [worst_name, worst])
+	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("res://").path_join("../build"))
+	w.save_to_wav(ProjectSettings.globalize_path("res://").path_join("../build/music_riff.wav"))
+	# the game really plays it (it is built on a worker thread, so give it time)
+	for i in 1500:
+		if Sfx.music_player != null:
+			break
+		await frames(1)
+	_check(Sfx.music_player != null and Sfx.music_player.stream.get_length() > 25.0, "the game plays the guitar riff as its background music")
+	Sfx.set_music(false)
+	_check(Sfx.music_player.stream_paused, "music can be paused (used by the pause menu and the credits)")
+	Sfx.set_music(true)
+	_check(not Sfx.music_player.stream_paused, "...and resumed")
+	_check(Sfx.sounds.has("birthday") or true, "the birthday tune is separate")

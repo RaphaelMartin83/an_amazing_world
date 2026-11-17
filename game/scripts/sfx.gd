@@ -5,7 +5,11 @@ const RATE := 22050
 
 var sounds := {}
 var voices: Array[AudioStreamPlayer] = []
+const Music = preload("res://scripts/music.gd")
+
 var music_player: AudioStreamPlayer
+var music_wanted := true
+var _music_thread: Thread
 var _next := 0
 
 
@@ -253,44 +257,36 @@ func _arp(freqs: Array, step: float, kind: String, vol: float) -> AudioStreamWAV
 
 
 # A bouncy 8-bar loop: bass + lead, C major.
+# The background music is an old-school guitar riff (see music.gd). It takes a few seconds to synthesise, so it is
+# built on a worker thread and starts as soon as it is ready.
 func _start_music() -> void:
-	var bpm := 150.0
-	var step := 60.0 / bpm / 2.0           # eighth notes
-	var per := int(RATE * step)
-	var lead := [
-		523, 0, 659, 0, 784, 659, 523, 0,   587, 0, 698, 0, 880, 698, 587, 0,
-		659, 0, 784, 0, 988, 784, 659, 0,   523, 659, 784, 659, 523, 392, 523, 0,
-	]
-	var bass := [
-		131, 131, 196, 131, 131, 131, 196, 131,   147, 147, 220, 147, 147, 147, 220, 147,
-		165, 165, 247, 165, 165, 165, 247, 165,   131, 131, 196, 131, 196, 131, 98, 131,
-	]
-	var n := per * lead.size()
-	var data := PackedByteArray()
-	data.resize(n * 2)
-	var pl := 0.0
-	var pb := 0.0
-	for i in n:
-		var idx: int = i / per
-		var t := float(i % per) / per
-		var s := 0.0
-		if lead[idx] > 0:
-			pl += float(lead[idx]) / RATE
-			s += _wave("square", pl) * 0.5 * (1.0 - t * 0.6)
-		pb += float(bass[idx]) / RATE
-		s += _wave("tri", pb) * 0.9 * (1.0 - t * 0.25)
-		data.encode_s16(i * 2, int(clampf(s * 0.13, -1.0, 1.0) * 32767.0))
-	var w := _make_stream(data)
-	w.loop_mode = AudioStreamWAV.LOOP_FORWARD
-	w.loop_begin = 0
-	w.loop_end = n
+	_music_thread = Thread.new()
+	_music_thread.start(_music_worker)
+
+
+func _music_worker() -> void:
+	var stream := Music.build()
+	call_deferred("_music_ready", stream)
+
+
+func _music_ready(stream: AudioStreamWAV) -> void:
+	if _music_thread:
+		_music_thread.wait_to_finish()
+		_music_thread = null
 	music_player = AudioStreamPlayer.new()
-	music_player.stream = w
-	music_player.volume_db = -6.0
+	music_player.stream = stream
+	music_player.volume_db = -13.0
 	add_child(music_player)
 	music_player.play()
+	music_player.stream_paused = not music_wanted
+
+
+func _exit_tree() -> void:
+	if _music_thread and _music_thread.is_started():
+		_music_thread.wait_to_finish()
 
 
 func set_music(on: bool) -> void:
+	music_wanted = on
 	if music_player:
 		music_player.stream_paused = not on
